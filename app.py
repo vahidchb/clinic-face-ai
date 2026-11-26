@@ -23,10 +23,15 @@ app = FastAPI(title="clinic-face-ai")
 # Real gateway config — all from environment, never hard-code a key here.
 # Gisoo (first choice): AI_GATEWAY_BASE_URL=https://ir.gisoo.pro/api/v1
 # Sepand (backup):      AI_GATEWAY_BASE_URL=https://api.sepandsoftware.ir/v1
-# Vision model for analysis, e.g. gemini-3.6-flash on Gisoo.
+# Vision model for analysis — cheapest capable Gemini on Gisoo (2026-11-26).
+# gemini-3.1-flash-lite: $0.35 in / $2.10 out per 1M tokens, vision + JSON.
+# One analysis (1120 input image tokens + ~500 output) costs ~$0.0014.
+# gemini-3.6-flash costs ~$0.0038 for the same call — 2.6x more, no gain here.
+# gpt-5-nano is even cheaper (~$0.0003) but weaker on detailed skin JSON,
+# so Lite is the test default; compare nano on the same photo if curious.
 GATEWAY_BASE_URL = os.environ.get("AI_GATEWAY_BASE_URL", "")
 GATEWAY_API_KEY = os.environ.get("AI_GATEWAY_API_KEY", "")
-VISION_MODEL = os.environ.get("AI_VISION_MODEL", "gemini-3.6-flash")
+VISION_MODEL = os.environ.get("AI_VISION_MODEL", "gemini-3.1-flash-lite")
 # Image model for the real after-photo, e.g. gemini-3.1-flash-lite-image
 # (Nano Banana 2 Lite) — check GET {base_url}/models on the gateway first.
 IMAGE_MODEL = os.environ.get("AI_IMAGE_MODEL", "gemini-3.1-flash-lite-image")

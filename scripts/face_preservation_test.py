@@ -25,6 +25,11 @@ from openai import OpenAI
 
 BASE_URL = os.environ["AI_GATEWAY_BASE_URL"]
 API_KEY = os.environ["AI_GATEWAY_API_KEY"]
+# Cheapest Nano Banana on Gisoo (2026-11-26): Lite is ~$0.047 per 1K image,
+# 9 test images = ~$0.43. Nano Banana 2 is 2x that (~$0.85 for 9);
+# Nano Banana 2.1 costs almost the same as Lite (~$0.44 for 9) — try it
+# second if Lite moves the face. Always test at 1K, never 2K/4K, and
+# one treatment at a time — 5 treatments at once is 5x the images.
 MODEL = os.environ.get("AI_IMAGE_MODEL", "gemini-3.1-flash-lite-image")
 
 INTENSITIES = {
