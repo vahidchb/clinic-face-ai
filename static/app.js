@@ -65,9 +65,66 @@ $(function () {
     });
   });
 
+  let zoom = 1, panX = 0, panY = 0;
+
+  function updateAfter() {
+    // Demo-only preview: a filter on the SAME photo, strength follows the
+    // selected intensities. Real after-photo comes from the image model.
+    const levels = { "خفیف": 1, "متعادل": 2, "محسوس": 3 };
+    let total = 0, count = 0;
+    $(".treatment").each(function () {
+      if (!$(this).find(".doctor-check").is(":checked")) return;
+      count += 1;
+      total += levels[$(this).find(".intensity button.active").text()] || 2;
+    });
+    const strength = count === 0 ? 0 : total / count; // 0..3
+    const blur = (strength * 0.35).toFixed(2);
+    const bright = (1 + strength * 0.02).toFixed(2);
+    $("#afterImg").css(
+      "filter",
+      `brightness(${bright}) saturate(1.08) contrast(0.97) blur(${blur}px)`
+    );
+    $("#afterCard").prop("hidden", count === 0);
+  }
+
+  function applyZoom() {
+    $("#zoomSlider").val(zoom);
+    $("#zoomLabel").text(`زوم: ${zoom.toLocaleString("fa-IR")}×`);
+    $("#compareBox").toggleClass("zoomed", zoom > 1);
+    $("#compareBox img, #compareBox .before-wrap").css(
+      "transform", `translate(${panX}px, ${panY}px) scale(${zoom})`
+    );
+  }
+
+  $("#compareSlider").on("input", function () {
+    $("#beforeWrap").css("clip-path", `inset(0 ${100 - this.value}% 0 0)`);
+  });
+  $("#zoomIn").on("click", () => { zoom = Math.min(3, zoom + 0.5); applyZoom(); });
+  $("#zoomOut").on("click", () => { zoom = Math.max(1, zoom - 0.5); if (zoom === 1) { panX = 0; panY = 0; } applyZoom(); });
+  $("#zoomSlider").on("input", function () { zoom = Number(this.value); if (zoom === 1) { panX = 0; panY = 0; } applyZoom(); });
+  $("#zoomReset").on("click", () => { zoom = 1; panX = 0; panY = 0; applyZoom(); });
+  // Drag to pan while zoomed.
+  let dragging = false, startX = 0, startY = 0;
+  $("#compareBox").on("mousedown touchstart", function (e) {
+    if (zoom <= 1) return;
+    dragging = true;
+    const p = e.originalEvent.touches ? e.originalEvent.touches[0] : e;
+    startX = p.clientX - panX; startY = p.clientY - panY;
+  });
+  $(document).on("mousemove touchmove", function (e) {
+    if (!dragging) return;
+    const p = e.originalEvent.touches ? e.originalEvent.touches[0] : e;
+    panX = p.clientX - startX; panY = p.clientY - startY;
+    applyZoom();
+  });
+  $(document).on("mouseup touchend", () => { dragging = false; });
+
   function render(data) {
     analysis = data;
     $("#resultCard, #zonesCard, #treatmentsCard, #planCard").prop("hidden", false);
+    const src = $("#photoPreview").attr("src");
+    if (src) { $("#afterImg, #beforeImg").attr("src", src); }
+    applyZoom();
 
     // Glow Score ring, animated count.
     let n = 0;
@@ -149,5 +206,6 @@ $(function () {
     $("#planSummary").text(
       count === 0 ? "هنوز درمانی انتخاب نشده است." : `${count} درمان انتخاب شده است.`
     );
+    updateAfter();
   }
 });

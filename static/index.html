@@ -61,6 +61,24 @@
     <div class="treatments" id="treatments"></div>
   </section>
 
+  <section class="card after-card" id="afterCard" hidden>
+    <h2>پیش‌نمایش «بعد»</h2>
+    <p class="muted">همین عکس، با همان درمان‌های انتخاب‌شده. اسلایدر را بکشید تا قبل و بعد را مقایسه کنید؛ برای دیدن جزئیات زوم کنید.</p>
+    <div class="compare" id="compareBox">
+      <img id="afterImg" alt="پیش‌نمایش بعد">
+      <div class="before-wrap" id="beforeWrap"><img id="beforeImg" alt="قبل"></div>
+      <input type="range" id="compareSlider" min="0" max="100" value="50" aria-label="مقایسه قبل و بعد">
+    </div>
+    <div class="zoom-controls">
+      <button class="btn btn-ghost" id="zoomOut" type="button">−</button>
+      <input type="range" id="zoomSlider" min="1" max="3" step="0.25" value="1" aria-label="زوم">
+      <button class="btn btn-ghost" id="zoomIn" type="button">+</button>
+      <button class="btn btn-ghost" id="zoomReset" type="button">بازنشانی زوم</button>
+      <span id="zoomLabel">زوم: ۱×</span>
+    </div>
+    <p class="muted">این پیش‌نمایش با فیلتر نمایشی ساخته می‌شود و چهره عوض نمی‌شود؛ عکس واقعی «بعد» بعد از اتصال مدل تصویری می‌آید.</p>
+  </section>
+
   <section class="card plan-card" id="planCard" hidden>
     <h2>برنامه‌ی انتخابی پزشک</h2>
     <p id="planSummary">هنوز درمانی انتخاب نشده است.</p>

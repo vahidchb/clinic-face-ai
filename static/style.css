@@ -96,6 +96,25 @@ h2 { margin: 0 0 6px; font-size: 20px; }
 .intensity button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
 .doctor-toggle { margin-top: 12px; display: flex; gap: 8px; align-items: center; color: var(--muted); }
 .doctor-toggle input { accent-color: var(--pink); width: 18px; height: 18px; }
+.compare {
+  position: relative; border-radius: 18px; overflow: hidden;
+  background: var(--pink-soft); min-height: 280px; touch-action: none;
+}
+.compare img { width: 100%; display: block; user-select: none; }
+.compare .before-wrap {
+  position: absolute; inset: 0; overflow: hidden;
+  clip-path: inset(0 50% 0 0);
+}
+.compare .before-wrap img { width: 100%; height: 100%; object-fit: cover; }
+#afterImg { filter: var(--after-filter, none); }
+#compareSlider {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; width: calc(100% - 24px);
+  accent-color: var(--pink);
+}
+.zoom-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.zoom-controls input[type="range"] { flex: 1; min-width: 120px; accent-color: var(--pink); }
+.compare.zoomed { cursor: grab; }
+.compare.zoomed:active { cursor: grabbing; }
 .disclaimer { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.8; }
 @media (max-width: 520px) {
   h1 { font-size: 28px; }
