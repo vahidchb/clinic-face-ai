@@ -45,30 +45,63 @@ $(function () {
     showPhoto(c.toDataURL("image/png"));
   });
 
+  // Phone selfies are several MB — shrink to max 1024px before upload so
+  // the analysis does not crawl on a slow connection. Falls back to the
+  // original file if anything goes wrong.
+  function shrinkPhoto(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
+          if (scale === 1) { resolve(file); return; }
+          const c = document.createElement("canvas");
+          c.width = Math.round(img.width * scale);
+          c.height = Math.round(img.height * scale);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          c.toBlob((b) => resolve(b || file), "image/jpeg", 0.85);
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+  }
+
   $("#analyzeBtn").on("click", function () {
     const file = $("#photoInput")[0].files[0];
-    const form = new FormData();
-    if (file) form.append("file", file);
-    else {
+    $("#scanLine").prop("hidden", false);
+    $("#analyzeBtn").prop("disabled", true).text("در حال تحلیل…");
+    $("#uploadHint").text("در حال ارسال عکس و تحلیل…");
+    const send = (blob, name) => {
+      const form = new FormData();
+      form.append("file", blob, name);
+      $.ajax({
+        url: "/api/analyze", method: "POST", data: form,
+        processData: false, contentType: false, timeout: 120000,
+        success: render,
+        error: (xhr, status) => $("#uploadHint").text(
+          status === "timeout"
+            ? "خیلی طول کشید — اینترنت یا درگاه کند است؛ دوباره امتحان کنید."
+            : "تحلیل انجام نشد — دوباره امتحان کنید."
+        ),
+        complete: () => {
+          $("#scanLine").prop("hidden", true);
+          $("#analyzeBtn").prop("disabled", false).text("شروع تحلیل");
+        },
+      });
+    };
+    if (file) {
+      shrinkPhoto(file).then((blob) => send(blob, "photo.jpg"));
+    } else {
       // No upload: send the preview (sample drawing) as a real image file,
       // so the gateway analyzes it instead of falling back to demo data.
       const src = $("#photoPreview").attr("src");
-      if (src) form.append("file", dataUrlToBlob(src), "photo.png");
-      else form.append("file", new Blob(["demo"], { type: "text/plain" }), "demo.txt");
+      if (src) send(dataUrlToBlob(src), "photo.png");
+      else send(new Blob(["demo"], { type: "text/plain" }), "demo.txt");
     }
-
-    $("#scanLine").prop("hidden", false);
-    $("#analyzeBtn").prop("disabled", true).text("در حال تحلیل…");
-    $.ajax({
-      url: "/api/analyze", method: "POST", data: form,
-      processData: false, contentType: false,
-      success: render,
-      error: () => $("#uploadHint").text("تحلیل انجام نشد — دوباره امتحان کنید."),
-      complete: () => {
-        $("#scanLine").prop("hidden", true);
-        $("#analyzeBtn").prop("disabled", false).text("شروع تحلیل");
-      },
-    });
   });
 
   let zoom = 1, panX = 0, panY = 0;
@@ -129,26 +162,33 @@ $(function () {
     const btn = $(this);
     btn.prop("disabled", true).text("در حال ساخت عکس بعد…");
     $("#simulateStatus").text("در حال ساخت عکس واقعی… چند ثانیه طول می‌کشد.");
-    const form = new FormData();
+    const sendSimulate = (blob, name) => {
+      const form = new FormData();
+      form.append("file", blob, name);
+      form.append("treatments", JSON.stringify(selected));
+      $.ajax({
+        url: "/api/simulate", method: "POST", data: form,
+        processData: false, contentType: false, timeout: 180000,
+        success: (data) => {
+          if (data.error) {
+            $("#simulateStatus").text(data.message || data.error);
+            return;
+          }
+          realAfter = true;
+          $("#afterImg").attr("src", data.image).css("filter", "none");
+          $("#simulateStatus").text("عکس واقعی ساخته شد — " + (data.disclaimer || ""));
+        },
+        error: (xhr, status) => $("#simulateStatus").text(
+          status === "timeout"
+            ? "ساخت عکس خیلی طول کشید — دوباره امتحان کنید."
+            : "ساخت عکس انجام نشد — دوباره امتحان کنید."
+        ),
+        complete: () => btn.prop("disabled", false).text("ساخت عکس واقعی «بعد»"),
+      });
+    };
     const file = $("#photoInput")[0].files[0];
-    if (file) form.append("file", file);
-    else form.append("file", dataUrlToBlob(src), "photo.png");
-    form.append("treatments", JSON.stringify(selected));
-    $.ajax({
-      url: "/api/simulate", method: "POST", data: form,
-      processData: false, contentType: false,
-      success: (data) => {
-        if (data.error) {
-          $("#simulateStatus").text(data.message || data.error);
-          return;
-        }
-        realAfter = true;
-        $("#afterImg").attr("src", data.image).css("filter", "none");
-        $("#simulateStatus").text("عکس واقعی ساخته شد — " + (data.disclaimer || ""));
-      },
-      error: () => $("#simulateStatus").text("ساخت عکس انجام نشد — دوباره امتحان کنید."),
-      complete: () => btn.prop("disabled", false).text("ساخت عکس واقعی «بعد»"),
-    });
+    if (file) shrinkPhoto(file).then((blob) => sendSimulate(blob, "photo.jpg"));
+    else sendSimulate(dataUrlToBlob(src), "photo.png");
   });
 
   function applyZoom() {
