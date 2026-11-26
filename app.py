@@ -202,7 +202,7 @@ async def analyze(file: UploadFile = File(...)):
         try:
             return await gateway_analysis(image_bytes)
         except Exception as exc:  # gateway down / bad key: fail loudly, no fake data
-            return {"error": f"gateway failed: {exc}", "demo": demo_analysis()}
+            return {"error": f"gateway failed: {exc}"}
     return demo_analysis()
 
 

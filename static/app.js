@@ -81,7 +81,16 @@ $(function () {
       $.ajax({
         url: "/api/analyze", method: "POST", data: form,
         processData: false, contentType: false, timeout: 120000,
-        success: render,
+        success: (data) => {
+          // A gateway failure comes back as {"error": ...} with no scores.
+          // Show the real error instead of rendering it as analysis —
+          // otherwise the score counter runs forever (no target to stop at).
+          if (data.error) {
+            $("#uploadHint").text(data.error);
+            return;
+          }
+          render(data);
+        },
         error: (xhr, status) => $("#uploadHint").text(
           status === "timeout"
             ? "خیلی طول کشید — اینترنت یا درگاه کند است؛ دوباره امتحان کنید."
@@ -232,9 +241,10 @@ $(function () {
     $("#simulateStatus").text("تا وقتی عکس واقعی ساخته نشده، پیش‌نمایش با فیلتر نمایشی است. هر عکس واقعی حدود ۰٫۰۳۴ دلار هزینه دارد.");
     applyZoom();
 
-    // Glow Score ring, animated count.
+    // Glow Score ring, animated count. Clamp 0-100 so a bad value can
+    // never send the counter running forever.
     let n = 0;
-    const target = data.glow_score;
+    const target = Math.max(0, Math.min(100, Number(data.glow_score) || 0));
     const ring = $("#glowRing");
     const timer = setInterval(() => {
       n += 2;
