@@ -83,24 +83,20 @@ AI_IMAGE_MODEL=google/gemini-3.1-flash-lite-image
 
 ## اجرا با درگاه — کپی کن، تایپ نکن
 
-ویندوز (cmd) — اول `.env` را بسازید (از `.env.example` کپی کنید و کلید
-خودتان را از داشبورد هرموز بگذارید)، بعد:
+ویندوز — اول `.env` را بسازید: `.env.example` را کپی کنید به `.env` و کلید
+خودتان را از داشبورد هرموز جلوی `AI_GATEWAY_API_KEY=` بگذارید. بعد:
 
 ```bash
 python -m pip install -r requirements.txt
-python -m uvicorn app:app --reload --port 8000
+.\run.bat
 ```
 
-برای خواندن `.env` در ویندوز، قبل از اجرای uvicorn در همان پنجره‌ی cmd:
+`run.bat` خودش `.env` را می‌خواند و سرویس را روی پورت ۸۰۰۰ بالا می‌آورد.
+اگر ترمینال VS Code شما PowerShell است، `.\run.bat` همان‌جا هم کار می‌کند.
+روش دستی (بدون run.bat) — در همان پنجره‌ی cmd اول `.env` را لود کنید:
 
 ```bash
-for /f "tokens=1,* delims==" %a in (.env) do set %a=%b
-```
-
-یا با PowerShell:
-
-```powershell
-Get-Content .env | ForEach-Object { $k,$v = $_ -split '=',2; Set-Item "env:$k" $v }
+for /f "eol=# tokens=1,* delims==" %a in (.env) do set %a=%b
 python -m uvicorn app:app --reload --port 8000
 ```
 
