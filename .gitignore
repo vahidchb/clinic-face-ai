@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 venv/
 .env
+# Never commit real face photos (test selfies or patient photos).
+test_photos/
+test_output/

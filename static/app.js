@@ -49,7 +49,13 @@ $(function () {
     const file = $("#photoInput")[0].files[0];
     const form = new FormData();
     if (file) form.append("file", file);
-    else form.append("file", new Blob(["demo"], { type: "text/plain" }), "demo.txt");
+    else {
+      // No upload: send the preview (sample drawing) as a real image file,
+      // so the gateway analyzes it instead of falling back to demo data.
+      const src = $("#photoPreview").attr("src");
+      if (src) form.append("file", dataUrlToBlob(src), "photo.png");
+      else form.append("file", new Blob(["demo"], { type: "text/plain" }), "demo.txt");
+    }
 
     $("#scanLine").prop("hidden", false);
     $("#analyzeBtn").prop("disabled", true).text("در حال تحلیل…");
@@ -66,10 +72,32 @@ $(function () {
   });
 
   let zoom = 1, panX = 0, panY = 0;
+  let realAfter = false; // true once the image model returned a real after-photo
+
+  function dataUrlToBlob(dataUrl) {
+    const parts = dataUrl.split(",");
+    const mime = parts[0].match(/:(.*?);/)[1];
+    const bin = atob(parts[1]);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  function selectedTreatments() {
+    const list = [];
+    $(".treatment").each(function () {
+      if (!$(this).find(".doctor-check").is(":checked")) return;
+      list.push({
+        id: $(this).data("id"),
+        intensity: $(this).find(".intensity button.active").text(),
+      });
+    });
+    return list;
+  }
 
   function updateAfter() {
     // Demo-only preview: a filter on the SAME photo, strength follows the
-    // selected intensities. Real after-photo comes from the image model.
+    // selected intensities. Skipped once the real after-photo is shown.
     const levels = { "خفیف": 1, "متعادل": 2, "محسوس": 3 };
     let total = 0, count = 0;
     $(".treatment").each(function () {
@@ -80,12 +108,48 @@ $(function () {
     const strength = count === 0 ? 0 : total / count; // 0..3
     const blur = (strength * 0.35).toFixed(2);
     const bright = (1 + strength * 0.02).toFixed(2);
-    $("#afterImg").css(
-      "filter",
-      `brightness(${bright}) saturate(1.08) contrast(0.97) blur(${blur}px)`
-    );
+    if (!realAfter) {
+      $("#afterImg").css(
+        "filter",
+        `brightness(${bright}) saturate(1.08) contrast(0.97) blur(${blur}px)`
+      );
+    }
     $("#afterCard").prop("hidden", count === 0);
   }
+
+  // Real after-photo: POST /api/simulate with the photo + doctor's plan.
+  $("#simulateBtn").on("click", function () {
+    const selected = selectedTreatments();
+    if (selected.length === 0) {
+      $("#simulateStatus").text("اول حداقل یک درمان را انتخاب کنید.");
+      return;
+    }
+    const src = $("#photoPreview").attr("src");
+    if (!src) return;
+    const btn = $(this);
+    btn.prop("disabled", true).text("در حال ساخت عکس بعد…");
+    $("#simulateStatus").text("در حال ساخت عکس واقعی… چند ثانیه طول می‌کشد.");
+    const form = new FormData();
+    const file = $("#photoInput")[0].files[0];
+    if (file) form.append("file", file);
+    else form.append("file", dataUrlToBlob(src), "photo.png");
+    form.append("treatments", JSON.stringify(selected));
+    $.ajax({
+      url: "/api/simulate", method: "POST", data: form,
+      processData: false, contentType: false,
+      success: (data) => {
+        if (data.error) {
+          $("#simulateStatus").text(data.message || data.error);
+          return;
+        }
+        realAfter = true;
+        $("#afterImg").attr("src", data.image).css("filter", "none");
+        $("#simulateStatus").text("عکس واقعی ساخته شد — " + (data.disclaimer || ""));
+      },
+      error: () => $("#simulateStatus").text("ساخت عکس انجام نشد — دوباره امتحان کنید."),
+      complete: () => btn.prop("disabled", false).text("ساخت عکس واقعی «بعد»"),
+    });
+  });
 
   function applyZoom() {
     $("#zoomSlider").val(zoom);
@@ -121,9 +185,11 @@ $(function () {
 
   function render(data) {
     analysis = data;
+    realAfter = false;
     $("#resultCard, #zonesCard, #treatmentsCard, #planCard").prop("hidden", false);
     const src = $("#photoPreview").attr("src");
-    if (src) { $("#afterImg, #beforeImg").attr("src", src); }
+    if (src) { $("#afterImg, #beforeImg").attr("src", src); $("#afterImg").css("filter", ""); }
+    $("#simulateStatus").text("تا وقتی عکس واقعی ساخته نشده، پیش‌نمایش با فیلتر نمایشی است. هر عکس واقعی حدود ۰٫۰۳۴ دلار هزینه دارد.");
     applyZoom();
 
     // Glow Score ring, animated count.
