@@ -10,11 +10,66 @@ noticeable). It never returns a dosage in units or a medical diagnosis.
 The doctor sets the exact amount.
 """
 
+import base64
+import json
+import os
+
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="clinic-face-ai")
+
+# Real gateway config — all from environment, never hard-code a key here.
+# Gisoo (first choice): AI_GATEWAY_BASE_URL=https://ir.gisoo.pro/api/v1
+# Sepand (backup):      AI_GATEWAY_BASE_URL=https://api.sepandsoftware.ir/v1
+# Vision model for analysis, e.g. gemini-3.6-flash on Gisoo.
+GATEWAY_BASE_URL = os.environ.get("AI_GATEWAY_BASE_URL", "")
+GATEWAY_API_KEY = os.environ.get("AI_GATEWAY_API_KEY", "")
+VISION_MODEL = os.environ.get("AI_VISION_MODEL", "gemini-3.6-flash")
+# Image model for the real after-photo, e.g. gemini-3.1-flash-lite-image
+# (Nano Banana 2 Lite) — check GET {base_url}/models on the gateway first.
+IMAGE_MODEL = os.environ.get("AI_IMAGE_MODEL", "gemini-3.1-flash-lite-image")
+
+ANALYZE_SYSTEM_PROMPT = (
+    "You are a skin-analysis assistant for an aesthetic clinic. "
+    "Analyze the face photo and return ONLY valid JSON with this shape: "
+    '{"glow_score": 0-100, "metrics": [{"key": "hydration"|"wrinkles"|"spots"|"pores"|"redness", '
+    '"label": "<Persian label>", "value": 0-100}], '
+    '"zones": [{"id": 1-5, "name": "<Persian zone>", "note": "<one short Persian sentence>"}], '
+    '"treatments": [{"id": "forehead-botox"|"frown-botox"|"eyes-botox"|"lip-filler"|"cheek-filler", '
+    '"name": "<Persian name>", "zone": "<Persian zone>"}]} '
+    "Zones are: 1 forehead, 2 frown lines, 3 around eyes, 4 lips, 5 cheeks. "
+    "Give visual intensity only — never a dosage in units, never a medical diagnosis."
+)
+
+
+async def gateway_analysis(image_bytes: bytes):
+    """Call the vision model through the Iranian gateway. Raises on failure."""
+    from openai import OpenAI
+
+    client = OpenAI(base_url=GATEWAY_BASE_URL, api_key=GATEWAY_API_KEY)
+    data_url = "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
+    resp = client.chat.completions.create(
+        model=VISION_MODEL,
+        messages=[
+            {"role": "system", "content": ANALYZE_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Analyze this face photo. Return only the JSON."},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
+    result = json.loads(resp.choices[0].message.content)
+    result["demo"] = False
+    result["disclaimer"] = (
+        "نتیجه پیش‌نمایش است، نه تضمین نتیجه؛ مقدار دقیق (واحد / حجم) را فقط پزشک تعیین می‌کند."
+    )
+    return result
 
 
 def demo_analysis():
@@ -59,10 +114,30 @@ async def health():
 
 @app.post("/api/analyze")
 async def analyze(file: UploadFile = File(...)):
-    # TODO: send `await file.read()` to the AI gateway and return its JSON.
-    # For now the file is accepted and ignored; demo data is returned.
-    _ = file.filename
+    image_bytes = await file.read()
+    if GATEWAY_BASE_URL and GATEWAY_API_KEY:
+        try:
+            return await gateway_analysis(image_bytes)
+        except Exception as exc:  # gateway down / bad key: fail loudly, no fake data
+            return {"error": f"gateway failed: {exc}", "demo": demo_analysis()}
     return demo_analysis()
+
+
+@app.post("/api/simulate")
+async def simulate(file: UploadFile = File(...)):
+    """Real after-photo — NOT implemented until the face-preservation test passes.
+
+    The test (scripts/face_preservation_test.py) decides which image model
+    keeps the face identical. Until then this endpoint refuses to fake it.
+    """
+    _ = await file.read()
+    return {
+        "error": "not_ready",
+        "message": (
+            "عکس واقعی «بعد» هنوز آماده نیست — اول تست حفظ چهره باید پاس شود. "
+            f"مدل تصویری پیش‌بینی‌شده: {IMAGE_MODEL} از طریق درگاه."
+        ),
+    }
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
