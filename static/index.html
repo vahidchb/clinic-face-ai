@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تشخیص چهره — کلینیک</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+<main class="page">
+  <header class="hero">
+    <p class="eyebrow">مشاوره‌ی کلینیک زیبایی</p>
+    <h1>تشخیص چهره</h1>
+    <p class="subtitle">عکس را بفرستید؛ کیفیت پوست و پیشنهاد درمان را ببینید. تصمیم نهایی با پزشک است.</p>
+  </header>
+
+  <section class="card upload-card">
+    <div class="photo-box" id="photoBox">
+      <div class="photo-placeholder" id="photoPlaceholder">
+        <span class="photo-icon">◐</span>
+        <p>عکس روبه‌رو با نور خوب</p>
+        <small>سلفی بیمار — صورت کامل در کادر</small>
+      </div>
+      <img id="photoPreview" alt="عکس بیمار" hidden>
+      <div class="scan-line" id="scanLine" hidden></div>
+      <div class="zone-markers" id="zoneMarkers"></div>
+    </div>
+    <div class="upload-actions">
+      <label class="btn btn-primary" for="photoInput">انتخاب عکس</label>
+      <input type="file" id="photoInput" accept="image/*" hidden>
+      <button class="btn btn-ghost" id="sampleBtn" type="button">عکس نمونه</button>
+      <button class="btn btn-dark" id="analyzeBtn" type="button" disabled>شروع تحلیل</button>
+    </div>
+    <p class="hint" id="uploadHint">اول یک عکس انتخاب کنید.</p>
+  </section>
+
+  <section class="card result-card" id="resultCard" hidden>
+    <div class="score-wrap">
+      <div class="ring" id="glowRing"><span id="glowScore">–</span><small>Glow Score</small></div>
+      <div class="score-text">
+        <h2>امتیاز درخشش پوست</h2>
+        <p>ترکیب آبرسانی، چروک، لک، منافذ و قرمزی — روی همین عکس.</p>
+        <span class="demo-badge">داده‌ی نمایشی — تحلیل واقعی بعد از اتصال درگاه</span>
+      </div>
+    </div>
+    <div class="metrics" id="metrics"></div>
+  </section>
+
+  <section class="card zones-card" id="zonesCard" hidden>
+    <h2>ناحیه‌های صورت</h2>
+    <p class="muted">روی هر چیپ بزنید؛ همان ناحیه روی عکس هم علامت می‌خورد.</p>
+    <div class="chips" id="zoneChips"></div>
+    <p class="zone-note" id="zoneNote"></p>
+  </section>
+
+  <section class="card treatments-card" id="treatmentsCard" hidden>
+    <h2>پیشنهادهای درمان</h2>
+    <p class="muted">شدت فقط بصری است: خفیف / متعادل / محسوس. مقدار دقیق را پزشک تعیین می‌کند.</p>
+    <div class="treatments" id="treatments"></div>
+  </section>
+
+  <section class="card plan-card" id="planCard" hidden>
+    <h2>برنامه‌ی انتخابی پزشک</h2>
+    <p id="planSummary">هنوز درمانی انتخاب نشده است.</p>
+    <ul id="planList"></ul>
+  </section>
+
+  <p class="disclaimer">پیش‌نمایش و تحلیل، نمایشی است و تضمین نتیجه نیست؛ تشخیص و مقدار دقیق (واحد / حجم) فقط با پزشک است.</p>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
