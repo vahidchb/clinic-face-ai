@@ -59,7 +59,7 @@
 
   <section class="card treatments-card" id="treatmentsCard" hidden>
     <h2>پیشنهادهای درمان</h2>
-    <p class="muted">شدت فقط بصری است: خفیف / متعادل / محسوس. مقدار دقیق را پزشک تعیین می‌کند.</p>
+    <p class="muted">هر ۱۰ ناحیه با انتخاب و شدت جداگانه — شدت فقط بصری است: خفیف / ملایم / محسوس. مقدار دقیق را پزشک تعیین می‌کند. روی عدد هر ناحیه روی عکس بزنید تا ردیف آن همین‌جا انتخاب شود.</p>
     <div class="treatments" id="treatments"></div>
     <div class="do-not-touch" id="doNotTouch" hidden>
       <h3>ناحیه‌هایی که نباید دست خورد</h3>
@@ -69,11 +69,18 @@
 
   <section class="card after-card" id="afterCard" hidden>
     <h2>پیش‌نمایش «بعد»</h2>
-    <p class="muted">همین عکس، با همان درمان‌های انتخاب‌شده. اسلایدر را بکشید تا قبل و بعد را مقایسه کنید؛ برای دیدن جزئیات زوم کنید.</p>
-    <div class="compare" id="compareBox">
+    <p class="muted">سمت چپ «قبل» است، سمت راست «بعد». اسلایدر را بکشید، یا با دکمه‌ها فقط قبل یا فقط بعد را ببینید؛ برای دیدن جزئیات زوم کنید.</p>
+    <div class="compare" id="compareBox" dir="ltr">
       <img id="afterImg" alt="پیش‌نمایش بعد">
       <div class="before-wrap" id="beforeWrap"><img id="beforeImg" alt="قبل"></div>
+      <span class="compare-label before-label">قبل</span>
+      <span class="compare-label after-label">بعد</span>
       <input type="range" id="compareSlider" min="0" max="100" value="50" aria-label="مقایسه قبل و بعد">
+    </div>
+    <div class="compare-toggles">
+      <button class="btn btn-ghost" id="compareBeforeBtn" type="button">فقط قبل</button>
+      <button class="btn btn-ghost" id="compareSplitBtn" type="button">نصف‌نصف</button>
+      <button class="btn btn-ghost" id="compareAfterBtn" type="button">فقط بعد</button>
     </div>
     <div class="zoom-controls">
       <button class="btn btn-ghost" id="zoomOut" type="button">−</button>

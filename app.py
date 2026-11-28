@@ -94,7 +94,7 @@ ANALYZE_SYSTEM_PROMPT = (
     '"treatments": [{"id": "forehead-botox"|"frown-botox"|"eyes-botox"|"undereye-filler"|'
     '"nasolabial-filler"|"marionette-filler"|"lip-filler"|"cheek-filler"|"jawline-filler"|'
     '"chin-filler"|"skin-treatment", "name": "<Persian name>", "zone": "<Persian zone>", '
-    '"priority": 1-3, "intensity": "خفیف"|"متعادل"|"محسوس"}], '
+    '"priority": 1-3, "intensity": "خفیف"|"ملایم"|"محسوس"}], '
     '"do_not_touch": ["<Persian: area to leave alone and why>"], '
     '"photo_quality": {"ok": true/false, '
     '"note": "<one short Persian sentence: front-facing, lighting, makeup/filter>"}} '
@@ -113,19 +113,21 @@ TREATMENT_EDITS = {
     "forehead-botox": "smooth the horizontal forehead lines",
     "frown-botox": "smooth the vertical frown line between the eyebrows",
     "eyes-botox": "smooth the fine lines at the outer corners of the eyes (crow's feet)",
-    "undereye-filler": "clearly fill the under-eye hollows and brighten the dark circles",
+    "undereye-filler": "clearly fill the under-eye hollows and brighten the dark circles only under the eyes",
     "nasolabial-filler": "clearly soften and fill the nasolabial folds (smile lines)",
     "marionette-filler": "clearly soften and fill the marionette lines at the mouth corners",
     "lip-filler": "add natural volume to the lips",
     "cheek-filler": "add natural volume to the cheeks, lifting them clearly",
     "jawline-filler": "clearly sharpen and define the jawline contour",
     "chin-filler": "clearly improve the chin shape and projection, smoothing any dimpling",
-    "skin-treatment": "clearly improve overall skin texture and tone — smoother, brighter, more even skin",
+    "skin-treatment": "clearly improve skin texture only — smoother, more even texture, without changing skin color, brightness or tone",
 }
 INTENSITY_WORDS = {
     "خفیف": "subtly",
-    "متعادل": "visibly",
+    "ملایم": "visibly",
     "محسوس": "strongly",
+    # Old label kept as a silent alias so a stale page can still send it.
+    "متعادل": "visibly",
 }
 DISCLAIMER = (
     "پیش‌نمایش تصویری است، نه تضمین نتیجه؛ تصمیم نهایی با پزشک است."
@@ -190,6 +192,42 @@ def _clamp(v):
     return max(0, min(100, round(v)))
 
 
+ZONE_NAMES = {
+    1: "پیشانی", 2: "خط اخم", 3: "دور چشم", 4: "زیر چشم", 5: "خط خنده",
+    6: "خط غم", 7: "لب", 8: "گونه", 9: "خط فک", 10: "چانه",
+}
+
+
+def _normalize_analysis(d: dict) -> dict:
+    """Guarantee every model field the frontend interpolates is a string.
+
+    The model sometimes omits a zone `note` — the frontend then rendered the
+    literal word "undefined" ("پیشانی: 85٪ — undefined"). Fill every missing
+    text field with "" so that can never happen again.
+    """
+    for z in d.get("zones") or []:
+        z["name"] = z.get("name") or ZONE_NAMES.get(z.get("id"), "")
+        z["note"] = z.get("note") or ""
+        if not isinstance(z.get("value"), (int, float)):
+            z["value"] = 0
+    for m in d.get("metrics") or []:
+        m["label"] = m.get("label") or ""
+        m["evidence"] = m.get("evidence") or ""
+        if not isinstance(m.get("value"), (int, float)):
+            m["value"] = 0
+    for t in d.get("treatments") or []:
+        t["name"] = t.get("name") or ""
+        t["zone"] = t.get("zone") or ""
+        if t.get("intensity") not in ("خفیف", "ملایم", "محسوس", "متعادل"):
+            t["intensity"] = "ملایم"
+    d["overall_impression"] = d.get("overall_impression") or ""
+    d["do_not_touch"] = [x for x in (d.get("do_not_touch") or []) if x]
+    q = d.get("photo_quality") or {}
+    q["note"] = q.get("note") or ""
+    d["photo_quality"] = q
+    return d
+
+
 def _merge_analyses(first: dict, second: dict) -> dict:
     """Average two runs of the same photo; flag disagreement.
 
@@ -216,6 +254,11 @@ def _merge_analyses(first: dict, second: dict) -> dict:
             spread = max(spread, abs((item.get("value") or 0) - (other.get("value") or 0)))
             merged_item = dict(item)
             merged_item["value"] = _clamp(((item.get("value") or 0) + (other.get("value") or 0)) / 2)
+            if key == "zones":
+                # A note the first run omitted but the second wrote still counts.
+                merged_item["note"] = item.get("note") or other.get("note") or ""
+            else:
+                merged_item["evidence"] = item.get("evidence") or other.get("evidence") or ""
             out.append(merged_item)
         # A zone/metric the first run skipped but the second found still counts.
         seen_keys = {i.get("key", i.get("id")) for i in out}
@@ -250,7 +293,7 @@ def _merge_analyses(first: dict, second: dict) -> dict:
             "دو بار تحلیل نتیجه‌های متفاوتی داد (اختلاف بیش از ۱۵) — "
             "به این عددها با احتیاط نگاه کنید و عکس بهتری بگیرید."
         )
-    return merged
+    return _normalize_analysis(merged)
 
 
 async def gateway_analysis(image_bytes: bytes):
@@ -280,7 +323,7 @@ async def gateway_analysis(image_bytes: bytes):
         "نتیجه پیش‌نمایش است، نه تضمین نتیجه؛ مقدار دقیق (واحد / حجم) را فقط پزشک تعیین می‌کند."
     )
     result["hydration_note"] = HYDRATION_NOTE
-    return result
+    return _normalize_analysis(result)
 
 
 async def gateway_analysis_twice(image_bytes: bytes):
@@ -300,24 +343,29 @@ async def gateway_analysis_twice(image_bytes: bytes):
 # One step gentler: the "ملایم" preview level downgrades every chosen intensity,
 # so the patient sees the subtle end of the range first — a preview is a
 # direction, not a promise, and the doctor can step it up from there.
-PREVIEW_DOWNGRADE = {"محسوس": "متعادل", "متعادل": "خفیف", "خفیف": "خفیف"}
+PREVIEW_DOWNGRADE = {"محسوس": "ملایم", "ملایم": "خفیف", "خفیف": "خفیف", "متعادل": "خفیف"}
 
 
 async def gateway_simulate(image_bytes: bytes, treatments: list, preview: str = "استاندارد"):
     """Build the real after-photo with the image model. Raises on failure.
 
-    `treatments` is a list of {"id": ..., "intensity": "خفیف"|"متعادل"|"محسوس"}.
+    `treatments` is a list of {"id": ..., "intensity": "خفیف"|"ملایم"|"محسوس"}.
     `preview` "ملایم" downgrades each intensity one step (see PREVIEW_DOWNGRADE).
     On Hormouz the image model is a chat model: the edited photo comes back
     as a data URI on message.images, so the raw response dict is read
     (the OpenAI SDK does not expose the non-standard `images` field).
+
+    Color discipline: the prompt below forbids ANY change outside the treated
+    zones — no hair color/style, eye color, skin tone, background, lighting
+    or clothing change. The old wording asked for a "brighter" overall skin
+    refresh and the model shifted the whole photo's color (even hair color).
     """
     edits = []
     for t in treatments:
         base = TREATMENT_EDITS.get(t.get("id", ""))
         if not base:
             continue
-        intensity = t.get("intensity", "متعادل")
+        intensity = t.get("intensity", "ملایم")
         if preview == "ملایم":
             intensity = PREVIEW_DOWNGRADE.get(intensity, intensity)
         edits.append(f"{INTENSITY_WORDS.get(intensity, 'visibly')} {base}")
@@ -325,12 +373,11 @@ async def gateway_simulate(image_bytes: bytes, treatments: list, preview: str = 
         raise ValueError("no treatment selected")
     prompt = (
         "Edit this photo: " + "; ".join(edits) + ", natural result. "
-        "Also give the skin a subtle overall refresh — smoother, brighter, "
-        "more rested — without changing the person's identity, features or "
-        "expression. Keep the person's face, eyes, nose, lips, skin tone, "
-        "hairstyle, pose, lighting and background EXACTLY the same. Change "
-        "ONLY the treated areas plus that subtle skin refresh. Photorealistic, "
-        "no cartoon look."
+        "Change ONLY the treated areas listed above — nothing else in the photo. "
+        "NEVER change the hair color or hairstyle, eye color, skin tone or skin "
+        "color, background, lighting, or clothing. Keep the person's face, eyes, "
+        "nose, lips, identity, features, expression, pose, and framing EXACTLY "
+        "the same. Photorealistic, no cartoon look."
     )
     client = _client()
     resp = client.chat.completions.create(
@@ -394,11 +441,11 @@ def demo_analysis():
         "treatments": [
             {"id": "forehead-botox", "name": "بوتاکس پیشانی", "zone": "پیشانی", "priority": 1, "intensity": "محسوس"},
             {"id": "frown-botox", "name": "بوتاکس خط اخم", "zone": "خط اخم", "priority": 1, "intensity": "محسوس"},
-            {"id": "eyes-botox", "name": "بوتاکس دور چشم", "zone": "دور چشم", "priority": 2, "intensity": "متعادل"},
-            {"id": "undereye-filler", "name": "فیلر زیر چشم", "zone": "زیر چشم", "priority": 2, "intensity": "متعادل"},
-            {"id": "nasolabial-filler", "name": "فیلر خط خنده", "zone": "خط خنده", "priority": 2, "intensity": "متعادل"},
+            {"id": "eyes-botox", "name": "بوتاکس دور چشم", "zone": "دور چشم", "priority": 2, "intensity": "ملایم"},
+            {"id": "undereye-filler", "name": "فیلر زیر چشم", "zone": "زیر چشم", "priority": 2, "intensity": "ملایم"},
+            {"id": "nasolabial-filler", "name": "فیلر خط خنده", "zone": "خط خنده", "priority": 2, "intensity": "ملایم"},
             {"id": "lip-filler", "name": "فیلر لب", "zone": "لب", "priority": 3, "intensity": "خفیف"},
-            {"id": "cheek-filler", "name": "فیلر گونه", "zone": "گونه", "priority": 3, "intensity": "متعادل"},
+            {"id": "cheek-filler", "name": "فیلر گونه", "zone": "گونه", "priority": 3, "intensity": "ملایم"},
         ],
         "do_not_touch": [
             "لب را بیش‌ازحد پر نکنید — حجم طبیعی آن خوب است و تقارن را خراب می‌کند.",
@@ -447,7 +494,7 @@ async def simulate(
 ):
     """Real after-photo via the image model (Hormouz chat route).
 
-    `treatments` is a JSON string: [{"id": "forehead-botox", "intensity": "متعادل"}].
+    `treatments` is a JSON string: [{"id": "forehead-botox", "intensity": "ملایم"}].
     `preview` "ملایم" shows the subtle end of the range (each intensity one
     step gentler); "استاندارد" uses the chosen intensities as-is.
     Without a gateway key the endpoint refuses — it never fakes the photo.

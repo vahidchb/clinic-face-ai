@@ -50,6 +50,9 @@ h2 { margin: 0 0 6px; font-size: 20px; }
   background: #fff; color: var(--pink); font-weight: 800;
   display: flex; align-items: center; justify-content: center;
   border: 2px solid var(--pink); transform: translate(-50%, -50%);
+  /* The markers layer is pointer-events:none so the photo stays clickable;
+     the dots themselves must be clickable (they select the plan row). */
+  pointer-events: auto; cursor: pointer;
 }
 .zone-dot.active { background: var(--pink); color: #fff; }
 .upload-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
@@ -104,7 +107,9 @@ h2 { margin: 0 0 6px; font-size: 20px; }
 .chip.active { background: var(--pink); border-color: var(--pink); color: #fff; }
 .zone-note { background: var(--lavender-soft); border-radius: 14px; padding: 12px; line-height: 1.8; }
 .treatments { display: grid; gap: 12px; }
-.treatment { border: 1px solid #f0dfe6; border-radius: 18px; padding: 14px; }
+.treatment { border: 1px solid #f0dfe6; border-radius: 18px; padding: 14px; transition: border-color .3s, box-shadow .3s; }
+.treatment.highlight { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(254, 131, 151, .35); }
+.treatment-zone { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
 .intensity { display: flex; gap: 6px; flex-wrap: wrap; }
 .intensity button {
   border: 1px solid #e5d3da; background: #fff; border-radius: 999px;
@@ -123,6 +128,16 @@ h2 { margin: 0 0 6px; font-size: 20px; }
   clip-path: inset(0 50% 0 0);
 }
 .compare .before-wrap img { width: 100%; height: 100%; object-fit: cover; }
+/* Before is on the left half, after on the right half — label both sides so
+   the compare is self-evident without hunting for the slider. */
+.compare-label {
+  position: absolute; top: 12px; z-index: 3;
+  background: rgba(255, 255, 255, .88); color: var(--ink);
+  border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 800;
+}
+.compare-label.before-label { left: 12px; }
+.compare-label.after-label { right: 12px; }
+.compare-toggles { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 #afterImg { filter: var(--after-filter, none); }
 #compareSlider {
   position: absolute; left: 12px; right: 12px; bottom: 12px; width: calc(100% - 24px);
@@ -138,7 +153,7 @@ h2 { margin: 0 0 6px; font-size: 20px; }
    Before analysis there is no .split class, so the photo stays full width. */
 .page.split { max-width: 1180px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); column-gap: 20px; row-gap: 16px; align-items: start; }
 .page.split .hero { grid-column: 1 / -1; }
-.page.split .upload-card { grid-column: 1; grid-row: 2 / span 4; position: sticky; top: 16px; margin-bottom: 0; }
+.page.split .upload-card { grid-column: 1; grid-row: 2 / span 4; margin-bottom: 0; }
 .page.split .photo-box { min-height: 380px; }
 .page.split .photo-box.has-photo { min-height: 0; }
 .page.split .result-card { grid-column: 2; grid-row: 2; }
@@ -151,7 +166,6 @@ h2 { margin: 0 0 6px; font-size: 20px; }
 @media (max-width: 860px) {
   .page.split { display: block; max-width: 720px; }
   .page.split .card { margin-bottom: 16px; }
-  .page.split .upload-card { position: static; }
   .page.split .photo-box { min-height: 280px; }
   .page.split .photo-box.has-photo { min-height: 0; }
 }
