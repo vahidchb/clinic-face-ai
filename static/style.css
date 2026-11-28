@@ -74,6 +74,7 @@ h2 { margin: 0 0 6px; font-size: 20px; }
   display: inline-block; background: var(--lavender-soft); color: #4a3d8f;
   border-radius: 999px; padding: 6px 12px; font-size: 13px; margin-top: 8px;
 }
+.real-badge { background: #dcfce7; color: #166534; }
 .metrics { margin-top: 16px; display: grid; gap: 10px; }
 .metric { display: grid; grid-template-columns: 110px 1fr 44px; gap: 10px; align-items: center; }
 .bar { height: 10px; border-radius: 999px; background: var(--pink-soft); overflow: hidden; }
@@ -116,6 +117,26 @@ h2 { margin: 0 0 6px; font-size: 20px; }
 .compare.zoomed { cursor: grab; }
 .compare.zoomed:active { cursor: grabbing; }
 .disclaimer { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.8; }
+/* After analysis: the page splits in two — photo on the right, text and the
+   doctor's selection on the left. RTL: grid column 1 is the right side.
+   Before analysis there is no .split class, so the photo stays full width. */
+.page.split { max-width: 1180px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); column-gap: 20px; row-gap: 16px; align-items: start; }
+.page.split .hero { grid-column: 1 / -1; }
+.page.split .upload-card { grid-column: 1; grid-row: 2 / span 4; position: sticky; top: 16px; margin-bottom: 0; }
+.page.split .photo-box { min-height: 380px; }
+.page.split .result-card { grid-column: 2; grid-row: 2; }
+.page.split .zones-card { grid-column: 2; grid-row: 3; }
+.page.split .treatments-card { grid-column: 2; grid-row: 4; }
+.page.split .plan-card { grid-column: 2; grid-row: 5; }
+.page.split .after-card { grid-column: 1 / -1; }
+.page.split .disclaimer { grid-column: 1 / -1; }
+.page.split .card { margin-bottom: 0; }
+@media (max-width: 860px) {
+  .page.split { display: block; max-width: 720px; }
+  .page.split .card { margin-bottom: 16px; }
+  .page.split .upload-card { position: static; }
+  .page.split .photo-box { min-height: 280px; }
+}
 @media (max-width: 520px) {
   h1 { font-size: 28px; }
   .metric { grid-template-columns: 90px 1fr 38px; }

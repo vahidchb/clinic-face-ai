@@ -7,13 +7,33 @@ $(function () {
   const ZONE_POS = { 1: [50, 18], 2: [50, 32], 3: [50, 44], 4: [50, 62], 5: [50, 78] };
   let analysis = null;
   let selectedZone = null;
+  let previewLevel = "استاندارد"; // "ملایم" = each intensity one step gentler
   const plan = {}; // treatmentId -> { name, intensity }
+
+  // Preview level toggle: ملایم shows the subtle end of the range first.
+  $("#previewGentle").on("click", function () {
+    previewLevel = "ملایم";
+    $("#previewGentle").addClass("active");
+    $("#previewStandard").removeClass("active");
+  });
+  $("#previewStandard").on("click", function () {
+    previewLevel = "استاندارد";
+    $("#previewStandard").addClass("active");
+    $("#previewGentle").removeClass("active");
+  });
 
   function showPhoto(src) {
     $("#photoPreview").attr("src", src).prop("hidden", false);
     $("#photoPlaceholder").hide();
     $("#analyzeBtn").prop("disabled", false);
     $("#uploadHint").text("عکس آماده است — «شروع تحلیل» را بزنید.");
+    // Fresh photo = no analysis yet: full-width photo, hide old results
+    // and zone markers so the new photo starts clean.
+    $(".page").removeClass("split");
+    $("#resultCard, #zonesCard, #treatmentsCard, #afterCard, #planCard").prop("hidden", true);
+    $("#zoneMarkers").empty();
+    analysis = null;
+    realAfter = false;
   }
 
   $("#photoInput").on("change", function () {
@@ -175,6 +195,7 @@ $(function () {
       const form = new FormData();
       form.append("file", blob, name);
       form.append("treatments", JSON.stringify(selected));
+      form.append("preview", previewLevel);
       $.ajax({
         url: "/api/simulate", method: "POST", data: form,
         processData: false, contentType: false, timeout: 180000,
@@ -235,11 +256,33 @@ $(function () {
   function render(data) {
     analysis = data;
     realAfter = false;
+    // Analysis arrived: split the page — photo right, text/doctor left.
+    $(".page").addClass("split");
+    // The badge used to always say "demo data" even for a real gateway
+    // analysis — show the truth: green "real analysis" when demo is false.
+    const badge = $("#analysisBadge");
+    if (data.demo) {
+      badge.removeClass("real-badge").text("داده‌ی نمایشی — تحلیل واقعی بعد از اتصال درگاه");
+    } else {
+      badge.addClass("real-badge").text("تحلیل واقعی — با درگاه هرموز");
+    }
     $("#resultCard, #zonesCard, #treatmentsCard, #planCard").prop("hidden", false);
     const src = $("#photoPreview").attr("src");
     if (src) { $("#afterImg, #beforeImg").attr("src", src); $("#afterImg").css("filter", ""); }
     $("#simulateStatus").text("تا وقتی عکس واقعی ساخته نشده، پیش‌نمایش با فیلتر نمایشی است. هر عکس واقعی حدود ۰٫۰۳۴ دلار هزینه دارد.");
     applyZoom();
+
+    // Quality + agreement note: photo problems and run-to-run disagreement
+    // are shown plainly instead of hidden behind the score.
+    const notes = [];
+    if (data.photo_quality && data.photo_quality.note) {
+      notes.push(data.photo_quality.ok ? "کیفیت عکس: " + data.photo_quality.note
+        : "⚠ کیفیت عکس: " + data.photo_quality.note);
+    }
+    if (data.agreement_note) notes.push("⚠ " + data.agreement_note);
+    if (data.hydration_note) notes.push(data.hydration_note);
+    if (notes.length) $("#qualityNote").prop("hidden", false).text(notes.join(" "));
+    else $("#qualityNote").prop("hidden", true);
 
     // Glow Score ring, animated count. Clamp 0-100 so a bad value can
     // never send the counter running forever.
@@ -293,7 +336,7 @@ $(function () {
     $(".chip, .zone-dot").removeClass("active");
     $(`.chip[data-id="${id}"], .zone-dot[data-id="${id}"]`).addClass("active");
     const z = analysis.zones.find((item) => item.id === id);
-    $("#zoneNote").text(z ? `${z.name}: ${z.note}` : "");
+    $("#zoneNote").text(z ? `${z.name}${z.value != null ? ": " + z.value + "٪" : ""} — ${z.note}` : "");
   }
 
   $(document).on("click", ".chip, .zone-dot", function () {

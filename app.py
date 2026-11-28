@@ -33,7 +33,8 @@ app = FastAPI(title="clinic-face-ai")
 # Hormouz (primary): AI_GATEWAY_BASE_URL=https://api.hormouz.net/v1
 #   AI_VISION_MODEL=google/gemini-3.1-flash-lite  (vision, $0.25 in / $1.50 out per 1M)
 #   AI_IMAGE_MODEL=google/gemini-3.1-flash-lite-image  (Nano Banana 2 Lite, $0.034/image)
-# One analysis on Hormouz costs ~$0.001; one after-photo ~$0.034.
+# One analysis on Hormouz costs ~$0.0028 (two runs averaged, see _merge_analyses);
+# one after-photo ~$0.034.
 # Gisoo (backup for analysis only): AI_GATEWAY_BASE_URL=https://ir.gisoo.pro/api/v1
 #   with AI_VISION_MODEL=gemini-3.1-flash-lite (no google/ prefix there).
 GATEWAY_BASE_URL = os.environ.get("AI_GATEWAY_BASE_URL", "https://api.hormouz.net/v1")
@@ -44,15 +45,29 @@ IMAGE_MODEL = os.environ.get("AI_IMAGE_MODEL", "google/gemini-3.1-flash-lite-ima
 ANALYZE_SYSTEM_PROMPT = (
     "You are a skin-analysis assistant for an aesthetic clinic. "
     "Analyze the face photo and return ONLY valid JSON with this shape: "
-    '{"glow_score": 0-100, "metrics": [{"key": "hydration"|"wrinkles"|"spots"|"pores"|"redness", '
-    '"label": "<Persian label>", "value": 0-100}], '
-    '"zones": [{"id": 1-5, "name": "<Persian zone>", "note": "<one short Persian sentence>"}], '
+    '{"glow_score": 0-100, '
+    '"metrics": [{"key": "hydration"|"wrinkles"|"spots"|"pores"|"redness", '
+    '"label": "<Persian label>", "value": 0-100, '
+    '"evidence": "<one short Persian sentence: what is visible on the photo>"}], '
+    '"zones": [{"id": 1-5, "name": "<Persian zone>", "value": 0-100, '
+    '"note": "<one short Persian sentence>"}], '
     '"treatments": [{"id": "forehead-botox"|"frown-botox"|"eyes-botox"|"lip-filler"|"cheek-filler", '
-    '"name": "<Persian name>", "zone": "<Persian zone>"}]} '
+    '"name": "<Persian name>", "zone": "<Persian zone>"}], '
+    '"photo_quality": {"ok": true/false, '
+    '"note": "<one short Persian sentence: front-facing, lighting, makeup/filter>"}} '
+    "Scales are anchored — 0 means the problem is severe and clearly visible, "
+    "50 means moderate and visible at normal distance, 100 means not visible at all. "
+    "Score what you can actually see; do not guess what the camera cannot show. "
     "Zones are: 1 forehead, 2 frown lines, 3 around eyes, 4 lips, 5 cheeks. "
-    "Always list all 5 zones and all 5 treatments, even when a treatment is "
-    "not needed for this face — the doctor decides what to use. "
+    "Always list all 5 zones and all 5 metrics. List all 5 treatments, even when "
+    "a treatment is not needed for this face — the doctor decides what to use. "
+    "Use the exact Persian label 'آبرسانی (تخمین ظاهری)' for hydration: hydration "
+    "cannot be measured from a photo, it is only an appearance estimate. "
     "Give visual intensity only — never a dosage in units, never a medical diagnosis."
+)
+
+HYDRATION_NOTE = (
+    "آبرسانی از روی عکس فقط تخمین ظاهری است؛ عدد دقیق را دستگاه کلینیک می‌دهد."
 )
 
 # Per-treatment edit instructions for the after-photo. Intensity words are
@@ -84,8 +99,106 @@ def _data_url(image_bytes: bytes) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
 
 
+def _image_dimensions(image_bytes: bytes):
+    """Width/height from JPEG/PNG headers with stdlib only; None if unknown."""
+    if image_bytes[:3] == b"\xff\xd8\xff":  # JPEG: scan markers for SOF0/1/2
+        i = 2
+        while i + 9 < len(image_bytes):
+            if image_bytes[i] != 0xFF:
+                i += 1
+                continue
+            marker = image_bytes[i + 1]
+            if marker in (0xC0, 0xC1, 0xC2):
+                h = int.from_bytes(image_bytes[i + 5 : i + 7], "big")
+                w = int.from_bytes(image_bytes[i + 7 : i + 9], "big")
+                return w, h
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            seg_len = int.from_bytes(image_bytes[i + 2 : i + 4], "big")
+            i += 2 + seg_len
+        return None
+    if image_bytes[:8] == b"\x89PNG\r\n\x1a\n" and len(image_bytes) >= 24:
+        w = int.from_bytes(image_bytes[16:20], "big")
+        h = int.from_bytes(image_bytes[20:24], "big")
+        return w, h
+    return None
+
+
+def _photo_gate_error(image_bytes: bytes):
+    """Persian error when a real photo is too small/low-quality; None if OK.
+
+    Returns 'not_an_image' for bytes that are not JPEG/PNG at all (the demo
+    blob) so demo mode keeps working. The gate is the single biggest accuracy
+    lever: a tiny, dark or filtered photo makes every score unreliable.
+    """
+    dims = _image_dimensions(image_bytes)
+    if dims is None:
+        return "not_an_image"
+    w, h = dims
+    if len(image_bytes) < 12_000:
+        return "عکس خیلی کم‌حجم است — لطفاً عکس بزرگ‌تر و بدون فشرده‌سازی زیاد بفرستید."
+    if min(w, h) < 240 or max(w, h) < 480:
+        return "عکس خیلی کوچک است — لطفاً عکس بزرگ‌تر و واضح‌تر بفرستید (حداقل ۴۸۰ پیکسل)."
+    return None
+
+
+def _clamp(v):
+    return max(0, min(100, round(v)))
+
+
+def _merge_analyses(first: dict, second: dict) -> dict:
+    """Average two runs of the same photo; flag disagreement.
+
+    Gemini is non-deterministic — the same photo can score differently twice.
+    Averaging two runs (still ~$0.0028, ~3x cheaper than the cheapest dedicated
+    scan) makes the score repeatable enough for a clinic, and a spread over 15
+    points tells the doctor not to trust that number yet.
+    """
+    merged = dict(first)
+    spread = abs((first.get("glow_score") or 0) - (second.get("glow_score") or 0))
+    merged["glow_score"] = _clamp(
+        ((first.get("glow_score") or 0) + (second.get("glow_score") or 0)) / 2
+    )
+    for key in ("metrics", "zones"):
+        by_id = {}
+        for item in second.get(key) or []:
+            by_id[item.get("key", item.get("id"))] = item
+        out = []
+        for item in first.get(key) or []:
+            other = by_id.get(item.get("key", item.get("id")))
+            if other is None:
+                out.append(item)
+                continue
+            spread = max(spread, abs((item.get("value") or 0) - (other.get("value") or 0)))
+            merged_item = dict(item)
+            merged_item["value"] = _clamp(((item.get("value") or 0) + (other.get("value") or 0)) / 2)
+            out.append(merged_item)
+        merged[key] = out
+    seen = {t.get("id") for t in first.get("treatments") or []}
+    merged["treatments"] = list(first.get("treatments") or []) + [
+        t for t in (second.get("treatments") or []) if t.get("id") not in seen
+    ]
+    q1, q2 = first.get("photo_quality") or {}, second.get("photo_quality") or {}
+    merged["photo_quality"] = {
+        "ok": bool(q1.get("ok", True) and q2.get("ok", True)),
+        "note": q1.get("note") or q2.get("note") or "",
+    }
+    merged["agreement"] = "low" if spread > 15 else "high"
+    merged["runs"] = 2
+    if spread > 15:
+        merged["agreement_note"] = (
+            "دو بار تحلیل نتیجه‌های متفاوتی داد (اختلاف بیش از ۱۵) — "
+            "به این عددها با احتیاط نگاه کنید و عکس بهتری بگیرید."
+        )
+    return merged
+
+
 async def gateway_analysis(image_bytes: bytes):
-    """Call the vision model through the gateway. Raises on failure."""
+    """Call the vision model through the gateway. Raises on failure.
+
+    temperature=0: the clinic needs the same photo to score the same twice.
+    """
     client = _client()
     resp = client.chat.completions.create(
         model=VISION_MODEL,
@@ -100,19 +213,42 @@ async def gateway_analysis(image_bytes: bytes):
             },
         ],
         response_format={"type": "json_object"},
+        temperature=0,
     )
     result = json.loads(resp.choices[0].message.content)
     result["demo"] = False
     result["disclaimer"] = (
         "نتیجه پیش‌نمایش است، نه تضمین نتیجه؛ مقدار دقیق (واحد / حجم) را فقط پزشک تعیین می‌کند."
     )
+    result["hydration_note"] = HYDRATION_NOTE
     return result
 
 
-async def gateway_simulate(image_bytes: bytes, treatments: list):
+async def gateway_analysis_twice(image_bytes: bytes):
+    """Two runs, averaged — see _merge_analyses. If one run fails, use the
+    other alone and say so instead of failing the whole analysis."""
+    first = await gateway_analysis(image_bytes)
+    try:
+        second = await gateway_analysis(image_bytes)
+    except Exception:
+        first["runs"] = 1
+        first["agreement"] = "single"
+        first["agreement_note"] = "تحلیل دوم انجام نشد — فقط یک بار تحلیل شد."
+        return first
+    return _merge_analyses(first, second)
+
+
+# One step gentler: the "ملایم" preview level downgrades every chosen intensity,
+# so the patient sees the subtle end of the range first — a preview is a
+# direction, not a promise, and the doctor can step it up from there.
+PREVIEW_DOWNGRADE = {"محسوس": "متعادل", "متعادل": "خفیف", "خفیف": "خفیف"}
+
+
+async def gateway_simulate(image_bytes: bytes, treatments: list, preview: str = "استاندارد"):
     """Build the real after-photo with the image model. Raises on failure.
 
     `treatments` is a list of {"id": ..., "intensity": "خفیف"|"متعادل"|"محسوس"}.
+    `preview` "ملایم" downgrades each intensity one step (see PREVIEW_DOWNGRADE).
     On Hormouz the image model is a chat model: the edited photo comes back
     as a data URI on message.images, so the raw response dict is read
     (the OpenAI SDK does not expose the non-standard `images` field).
@@ -122,7 +258,10 @@ async def gateway_simulate(image_bytes: bytes, treatments: list):
         base = TREATMENT_EDITS.get(t.get("id", ""))
         if not base:
             continue
-        edits.append(f"{INTENSITY_WORDS.get(t.get('intensity', 'متعادل'), 'visibly')} {base}")
+        intensity = t.get("intensity", "متعادل")
+        if preview == "ملایم":
+            intensity = PREVIEW_DOWNGRADE.get(intensity, intensity)
+        edits.append(f"{INTENSITY_WORDS.get(intensity, 'visibly')} {base}")
     if not edits:
         raise ValueError("no treatment selected")
     prompt = (
@@ -151,7 +290,9 @@ async def gateway_simulate(image_bytes: bytes, treatments: list):
     return {
         "image": images[0]["image_url"]["url"],
         "demo": False,
-        "disclaimer": DISCLAIMER,
+        "preview_level": preview,
+        "disclaimer": DISCLAIMER
+        + " پیش‌نمایش جهت تغییر را نشان می‌دهد، نه نتیجه‌ی دقیق بعد از تزریق.",
     }
 
 
@@ -160,18 +301,23 @@ def demo_analysis():
     return {
         "glow_score": 76,
         "metrics": [
-            {"key": "hydration", "label": "آبرسانی", "value": 72},
-            {"key": "wrinkles", "label": "چروک ریز", "value": 64},
-            {"key": "spots", "label": "لک و یکنواختی", "value": 68},
-            {"key": "pores", "label": "منافذ", "value": 71},
-            {"key": "redness", "label": "قرمزی", "value": 82},
+            {"key": "hydration", "label": "آبرسانی (تخمین ظاهری)", "value": 72,
+             "evidence": "پوست کمی خشک به نظر می‌رسد."},
+            {"key": "wrinkles", "label": "چروک ریز", "value": 64,
+             "evidence": "خطوط ریز روی پیشانی دیده می‌شود."},
+            {"key": "spots", "label": "لک و یکنواختی", "value": 68,
+             "evidence": "لک‌های پراکنده‌ی خفیف روی گونه."},
+            {"key": "pores", "label": "منافذ", "value": 71,
+             "evidence": "منافذ روی بینی و گونه قابل مشاهده است."},
+            {"key": "redness", "label": "قرمزی", "value": 82,
+             "evidence": "قرمزی محسوسی دیده نمی‌شود."},
         ],
         "zones": [
-            {"id": 1, "name": "پیشانی", "note": "خطوط افقی خفیف تا متوسط"},
-            {"id": 2, "name": "خط اخم", "note": "خط عمودی بین ابروها"},
-            {"id": 3, "name": "دور چشم", "note": "خطوط ریز گوشه‌ی چشم"},
-            {"id": 4, "name": "لب", "note": "حجم طبیعی، تقارن خوب"},
-            {"id": 5, "name": "گونه", "note": "حجم متوسط، افت خفیف"},
+            {"id": 1, "name": "پیشانی", "value": 70, "note": "خطوط افقی خفیف تا متوسط"},
+            {"id": 2, "name": "خط اخم", "value": 62, "note": "خط عمودی بین ابروها"},
+            {"id": 3, "name": "دور چشم", "value": 68, "note": "خطوط ریز گوشه‌ی چشم"},
+            {"id": 4, "name": "لب", "value": 80, "note": "حجم طبیعی، تقارن خوب"},
+            {"id": 5, "name": "گونه", "value": 74, "note": "حجم متوسط، افت خفیف"},
         ],
         "treatments": [
             {"id": "forehead-botox", "name": "بوتاکس پیشانی", "zone": "پیشانی"},
@@ -181,6 +327,10 @@ def demo_analysis():
             {"id": "cheek-filler", "name": "فیلر گونه", "zone": "گونه"},
         ],
         "demo": True,
+        "photo_quality": {"ok": True, "note": "عکس نمایشی — کیفیت واقعی بررسی نشده است."},
+        "agreement": "high",
+        "runs": 2,
+        "hydration_note": HYDRATION_NOTE,
         "disclaimer": "نتیجه نمایشی است، نه تضمین نتیجه؛ مقدار دقیق (واحد / حجم) را فقط پزشک تعیین می‌کند.",
     }
 
@@ -198,9 +348,14 @@ async def health():
 @app.post("/api/analyze")
 async def analyze(file: UploadFile = File(...)):
     image_bytes = await file.read()
+    gate = _photo_gate_error(image_bytes)
+    if gate not in (None, "not_an_image"):
+        return {"error": gate}
     if GATEWAY_BASE_URL and GATEWAY_API_KEY:
+        if gate == "not_an_image":
+            return {"error": "لطفاً یک عکس واقعی (JPG یا PNG) انتخاب کنید."}
         try:
-            return await gateway_analysis(image_bytes)
+            return await gateway_analysis_twice(image_bytes)
         except Exception as exc:  # gateway down / bad key: fail loudly, no fake data
             return {"error": f"gateway failed: {exc}"}
     return demo_analysis()
@@ -210,13 +365,21 @@ async def analyze(file: UploadFile = File(...)):
 async def simulate(
     file: UploadFile = File(...),
     treatments: str = Form(default="[]"),
+    preview: str = Form(default="استاندارد"),
 ):
     """Real after-photo via the image model (Hormouz chat route).
 
     `treatments` is a JSON string: [{"id": "forehead-botox", "intensity": "متعادل"}].
+    `preview` "ملایم" shows the subtle end of the range (each intensity one
+    step gentler); "استاندارد" uses the chosen intensities as-is.
     Without a gateway key the endpoint refuses — it never fakes the photo.
     """
     image_bytes = await file.read()
+    gate = _photo_gate_error(image_bytes)
+    if gate not in (None, "not_an_image"):
+        return {"error": gate}
+    if gate == "not_an_image":
+        return {"error": "لطفاً یک عکس واقعی (JPG یا PNG) انتخاب کنید."}
     if not (GATEWAY_BASE_URL and GATEWAY_API_KEY):
         return {
             "error": "not_ready",
@@ -230,7 +393,7 @@ async def simulate(
     except json.JSONDecodeError:
         return {"error": "bad_treatments", "message": "treatments باید JSON معتبر باشد."}
     try:
-        return await gateway_simulate(image_bytes, selected)
+        return await gateway_simulate(image_bytes, selected, preview)
     except Exception as exc:
         return {"error": f"gateway failed: {exc}"}
 

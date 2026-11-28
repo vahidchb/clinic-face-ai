@@ -6,3 +6,4 @@ venv/
 # Never commit real face photos (test selfies or patient photos).
 test_photos/
 test_output/
+demo_shots/
