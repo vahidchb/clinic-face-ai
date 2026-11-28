@@ -75,6 +75,7 @@
       <div class="before-wrap" id="beforeWrap"><img id="beforeImg" alt="قبل"></div>
       <span class="compare-label before-label">قبل</span>
       <span class="compare-label after-label">بعد</span>
+      <div class="compare-divider" id="compareDivider"><span class="compare-handle">↔</span></div>
       <input type="range" id="compareSlider" min="0" max="100" value="50" aria-label="مقایسه قبل و بعد">
     </div>
     <div class="compare-toggles">
@@ -91,11 +92,13 @@
     </div>
     <div class="preview-level">
       <span>شدت پیش‌نمایش:</span>
-      <button class="btn btn-ghost" id="previewGentle" type="button">ملایم</button>
-      <button class="btn btn-ghost active" id="previewStandard" type="button">استاندارد</button>
+      <span class="seg-group">
+        <button class="btn btn-ghost" id="previewGentle" type="button">ملایم</button>
+        <button class="btn btn-ghost active" id="previewStandard" type="button">استاندارد</button>
+      </span>
     </div>
     <button class="btn btn-primary" id="simulateBtn" type="button">ساخت عکس واقعی «بعد»</button>
-    <p class="muted" id="simulateStatus">تا وقتی عکس واقعی ساخته نشده، پیش‌نمایش با فیلتر نمایشی است. هر عکس واقعی حدود ۰٫۰۳۴ دلار هزینه دارد.</p>
+    <p class="muted" id="simulateStatus">تا وقتی عکس واقعی ساخته نشده، پیش‌نمایش با فیلتر نمایشی است. هر عکس واقعی با مدل پرو حدود ۰٫۱۳ تا ۰٫۲۵ دلار هزینه دارد.</p>
   </section>
 
   <section class="card plan-card" id="planCard" hidden>

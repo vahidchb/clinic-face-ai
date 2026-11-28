@@ -1,74 +1,81 @@
+/* clinic-face-ai — SkinSync-inspired design (2026-11-28).
+   Warm cream background, dark navy text, soft lavender accent.
+   Pink is kept only for the disclaimer card. Persian RTL, Vazirmatn. */
 :root {
-  --pink: #fe8397;
-  --pink-soft: #ffe3ea;
-  --lavender: #c0bafb;
-  --lavender-soft: #efedff;
-  --ink: #2b2135;
-  --muted: #7a6f87;
+  --lavender: #b7a6f2;
+  --lavender-light: #c9b8f0;
+  --lavender-soft: #ede8f9;
+  --lavender-dark: #5b4b9e;
+  --ink: #211d2e;
+  --muted: #8a8578;
   --card: #ffffff;
-  --bg: #fdf7fa;
-  --green: #3fae7a;
+  --bg: #f7f3ee;
+  --sand: #f1ece4;
+  --rose: #fbe9ec;
+  --rose-text: #7a3b46;
+  --green: #2e9e63;
+  --green-soft: #e3f3e9;
 }
 * { box-sizing: border-box; }
 body {
   margin: 0; font-family: Vazirmatn, Tahoma, sans-serif;
-  background: linear-gradient(180deg, #fff5f8, var(--bg) 30%, var(--lavender-soft));
+  background: var(--bg);
   color: var(--ink);
 }
 .page { max-width: 720px; margin: 0 auto; padding: 28px 16px 48px; }
 .hero { text-align: center; margin-bottom: 20px; }
-.eyebrow { color: var(--pink); font-weight: 700; margin: 0 0 6px; }
+.eyebrow { color: var(--lavender-dark); font-weight: 700; margin: 0 0 6px; }
 h1 { margin: 0; font-size: 34px; }
 .subtitle { color: var(--muted); margin: 8px 0 0; line-height: 1.8; }
 .card {
   background: var(--card); border-radius: 24px; padding: 20px;
-  box-shadow: 0 10px 30px rgba(190, 130, 170, .14); margin-bottom: 16px;
+  box-shadow: 0 10px 30px rgba(33, 29, 46, .08); margin-bottom: 16px;
 }
 h2 { margin: 0 0 6px; font-size: 20px; }
 .muted { color: var(--muted); line-height: 1.8; margin: 0 0 12px; }
 .photo-box {
   position: relative; border-radius: 18px; overflow: hidden;
-  background: var(--pink-soft); min-height: 280px;
+  background: #efe9e0; min-height: 280px;
   display: flex; align-items: center; justify-content: center;
 }
 /* Once a photo is shown the box hugs the image exactly, so the numbered
    zone markers (positioned in % of the box) land on the face, not in the
-   empty pink bands a min-height would leave around a wide photo. */
+   empty bands a min-height would leave around a wide photo. */
 .photo-box.has-photo { min-height: 0; }
-.photo-placeholder { text-align: center; color: #a05a6e; padding: 24px; }
+.photo-placeholder { text-align: center; color: var(--muted); padding: 24px; }
 .photo-icon { font-size: 44px; }
 #photoPreview { width: 100%; height: 100%; object-fit: cover; display: block; }
 .scan-line {
   position: absolute; left: 0; right: 0; height: 3px;
-  background: var(--pink); box-shadow: 0 0 18px var(--pink);
+  background: var(--lavender); box-shadow: 0 0 18px var(--lavender);
   animation: scan 1.4s ease-in-out infinite alternate;
 }
 @keyframes scan { from { top: 8%; } to { top: 88%; } }
 .zone-markers { position: absolute; inset: 0; pointer-events: none; }
 .zone-dot {
   position: absolute; width: 30px; height: 30px; border-radius: 50%;
-  background: #fff; color: var(--pink); font-weight: 800;
+  background: #fff; color: var(--lavender-dark); font-weight: 800;
   display: flex; align-items: center; justify-content: center;
-  border: 2px solid var(--pink); transform: translate(-50%, -50%);
+  border: 2px solid var(--lavender); transform: translate(-50%, -50%);
   /* The markers layer is pointer-events:none so the photo stays clickable;
      the dots themselves must be clickable (they select the plan row). */
   pointer-events: auto; cursor: pointer;
 }
-.zone-dot.active { background: var(--pink); color: #fff; }
+.zone-dot.active { background: var(--lavender); border-color: var(--lavender); color: #fff; }
 .upload-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 .btn {
   border: 0; border-radius: 999px; padding: 11px 20px; font-family: inherit;
   font-size: 15px; font-weight: 700; cursor: pointer;
 }
-.btn-primary { background: var(--pink); color: #fff; }
-.btn-ghost { background: var(--lavender-soft); color: #4a3d8f; }
+.btn-primary { background: var(--lavender); color: #fff; }
+.btn-ghost { background: var(--lavender-soft); color: var(--lavender-dark); }
 .btn-dark { background: var(--ink); color: #fff; }
 .btn:disabled { opacity: .45; cursor: default; }
 .hint { color: var(--muted); margin: 10px 0 0; }
 .score-wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .ring {
   width: 128px; height: 128px; border-radius: 50%; flex: none;
-  background: conic-gradient(var(--pink) calc(var(--p, 0) * 1%), var(--pink-soft) 0);
+  background: conic-gradient(var(--lavender) calc(var(--p, 0) * 1%), var(--lavender-soft) 0);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   position: relative;
 }
@@ -78,7 +85,7 @@ h2 { margin: 0 0 6px; font-size: 20px; }
 .ring span, .ring small { position: relative; z-index: 1; }
 .ring span { font-size: 36px; font-weight: 800; }
 .demo-badge {
-  display: inline-block; background: var(--lavender-soft); color: #4a3d8f;
+  display: inline-block; background: var(--lavender-soft); color: var(--lavender-dark);
   border-radius: 999px; padding: 6px 12px; font-size: 13px; margin-top: 8px;
 }
 .real-badge { background: #dcfce7; color: #166534; }
@@ -87,40 +94,40 @@ h2 { margin: 0 0 6px; font-size: 20px; }
   background: var(--lavender-soft); border-radius: 14px; padding: 12px 14px;
   line-height: 1.9; margin: 14px 0 0;
 }
-.do-not-touch { margin-top: 16px; border-top: 1px dashed #e5d3da; padding-top: 14px; }
+.do-not-touch { margin-top: 16px; border-top: 1px dashed #e7e0d6; padding-top: 14px; }
 .do-not-touch h3 { margin: 0 0 8px; font-size: 15px; color: var(--muted); }
 .do-not-touch ul { margin: 0; padding-right: 18px; color: var(--muted); line-height: 1.9; }
 .treatment-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .treatment-head h3 { margin: 0; }
 .priority-badge {
-  display: inline-block; background: var(--pink-soft); color: #a05a6e;
+  display: inline-block; background: var(--lavender-soft); color: var(--lavender-dark);
   border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700;
 }
 .metric { display: grid; grid-template-columns: 110px 1fr 44px; gap: 10px; align-items: center; }
-.bar { height: 10px; border-radius: 999px; background: var(--pink-soft); overflow: hidden; }
-.bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--lavender), var(--pink)); }
+.bar { height: 10px; border-radius: 999px; background: var(--lavender-soft); overflow: hidden; }
+.bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--lavender-light), var(--lavender)); }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip {
   border: 2px solid var(--lavender); background: #fff; border-radius: 999px;
   padding: 8px 14px; font-family: inherit; cursor: pointer; font-weight: 700;
 }
-.chip.active { background: var(--pink); border-color: var(--pink); color: #fff; }
+.chip.active { background: var(--ink); border-color: var(--ink); color: #fff; }
 .zone-note { background: var(--lavender-soft); border-radius: 14px; padding: 12px; line-height: 1.8; }
 .treatments { display: grid; gap: 12px; }
-.treatment { border: 1px solid #f0dfe6; border-radius: 18px; padding: 14px; transition: border-color .3s, box-shadow .3s; }
-.treatment.highlight { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(254, 131, 151, .35); }
+.treatment { border: 1px solid #efe9e0; border-radius: 18px; padding: 14px; transition: border-color .3s, box-shadow .3s; }
+.treatment.highlight { border-color: var(--lavender); box-shadow: 0 0 0 3px rgba(183, 166, 242, .35); }
 .treatment-zone { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
 .intensity { display: flex; gap: 6px; flex-wrap: wrap; }
 .intensity button {
-  border: 1px solid #e5d3da; background: #fff; border-radius: 999px;
+  border: 1px solid #e7e0d6; background: #fff; border-radius: 999px;
   padding: 7px 13px; font-family: inherit; cursor: pointer;
 }
 .intensity button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
 .doctor-toggle { margin-top: 12px; display: flex; gap: 8px; align-items: center; color: var(--muted); }
-.doctor-toggle input { accent-color: var(--pink); width: 18px; height: 18px; }
+.doctor-toggle input { accent-color: var(--lavender); width: 18px; height: 18px; }
 .compare {
   position: relative; border-radius: 18px; overflow: hidden;
-  background: var(--pink-soft); min-height: 280px; touch-action: none;
+  background: #efe9e0; min-height: 280px; touch-action: none;
 }
 .compare img { width: 100%; display: block; user-select: none; }
 .compare .before-wrap {
@@ -137,17 +144,52 @@ h2 { margin: 0 0 6px; font-size: 20px; }
 }
 .compare-label.before-label { left: 12px; }
 .compare-label.after-label { right: 12px; }
-.compare-toggles { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+/* SkinSync-style divider: a white line with a lavender circular handle
+   that rides on the clip edge. pointer-events:none so the range input
+   underneath stays draggable. */
+.compare-divider {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: 2px;
+  background: #fff; z-index: 4; pointer-events: none;
+  transform: translateX(-50%);
+  box-shadow: 0 0 8px rgba(0, 0, 0, .25);
+}
+.compare-handle {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 44px; height: 44px; border-radius: 50%; background: var(--lavender);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+}
+/* Segmented pill group (SkinSync Front/Left/Right style): a sand track,
+   the selected button becomes a dark pill. Used for the compare toggles
+   and the preview-level switch. */
+.compare-toggles {
+  display: flex; gap: 4px; margin-top: 14px;
+  background: var(--sand); border-radius: 999px; padding: 4px;
+}
+.compare-toggles .btn { flex: 1; background: transparent; box-shadow: none; }
+.compare-toggles .btn.active { background: var(--ink); color: #fff; }
 #afterImg { filter: var(--after-filter, none); }
 #compareSlider {
   position: absolute; left: 12px; right: 12px; bottom: 12px; width: calc(100% - 24px);
-  accent-color: var(--pink);
+  accent-color: var(--lavender);
 }
 .zoom-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
-.zoom-controls input[type="range"] { flex: 1; min-width: 120px; accent-color: var(--pink); }
+.zoom-controls input[type="range"] { flex: 1; min-width: 120px; accent-color: var(--lavender); }
 .compare.zoomed { cursor: grab; }
 .compare.zoomed:active { cursor: grabbing; }
-.disclaimer { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.preview-level { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.seg-group {
+  display: inline-flex; gap: 4px; background: var(--sand);
+  border-radius: 999px; padding: 4px;
+}
+.seg-group .btn { background: transparent; box-shadow: none; }
+.seg-group .btn.active { background: var(--ink); color: #fff; }
+/* Disclaimer is a soft pink card now (SkinSync's pink banner), not plain text. */
+.disclaimer {
+  background: var(--rose); color: var(--rose-text);
+  border-radius: 16px; padding: 12px 14px;
+  text-align: center; font-size: 13px; line-height: 1.8;
+}
 /* After analysis: the page splits in two — photo on the right, text and the
    doctor's selection on the left. RTL: grid column 1 is the right side.
    Before analysis there is no .split class, so the photo stays full width. */

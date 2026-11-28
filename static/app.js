@@ -72,7 +72,7 @@ $(function () {
     c.width = 600; c.height = 600;
     const x = c.getContext("2d");
     const g = x.createLinearGradient(0, 0, 600, 600);
-    g.addColorStop(0, "#ffe3ea"); g.addColorStop(1, "#c0bafb");
+    g.addColorStop(0, "#f1ece4"); g.addColorStop(1, "#c9b8f0");
     x.fillStyle = g; x.fillRect(0, 0, 600, 600);
     x.fillStyle = "#f6c9a8";
     x.beginPath(); x.arc(300, 300, 150, 0, Math.PI * 2); x.fill();
@@ -262,11 +262,19 @@ $(function () {
     const val = Math.max(0, Math.min(100, Number(v) || 0));
     $("#compareSlider").val(val);
     $("#beforeWrap").css("clip-path", `inset(0 ${100 - val}% 0 0)`);
+    // The divider handle rides on the clip edge (dir=ltr: before occupies
+    // the left val% of the box).
+    $("#compareDivider").css("left", val + "%");
   }
-  $("#compareSlider").on("input", function () { setCompare(this.value); });
-  $("#compareBeforeBtn").on("click", () => setCompare(100));
-  $("#compareSplitBtn").on("click", () => setCompare(50));
-  $("#compareAfterBtn").on("click", () => setCompare(0));
+  // Segmented compare control: the active button is the dark pill.
+  function markCompareBtn(btn) {
+    $("#compareBeforeBtn, #compareSplitBtn, #compareAfterBtn").removeClass("active");
+    if (btn) $(btn).addClass("active");
+  }
+  $("#compareSlider").on("input", function () { markCompareBtn(null); setCompare(this.value); });
+  $("#compareBeforeBtn").on("click", function () { markCompareBtn(this); setCompare(100); });
+  $("#compareSplitBtn").on("click", function () { markCompareBtn(this); setCompare(50); });
+  $("#compareAfterBtn").on("click", function () { markCompareBtn(this); setCompare(0); });
   $("#zoomIn").on("click", () => { zoom = Math.min(3, zoom + 0.5); applyZoom(); });
   $("#zoomOut").on("click", () => { zoom = Math.max(1, zoom - 0.5); if (zoom === 1) { panX = 0; panY = 0; } applyZoom(); });
   $("#zoomSlider").on("input", function () { zoom = Number(this.value); if (zoom === 1) { panX = 0; panY = 0; } applyZoom(); });
@@ -307,8 +315,9 @@ $(function () {
     $("#uploadHint").text("تحلیل انجام شد — نتیجه را ببینید.");
     const src = $("#photoPreview").attr("src");
     if (src) { $("#afterImg, #beforeImg").attr("src", src); $("#afterImg").css("filter", ""); }
-    $("#simulateStatus").text("تا وقتی عکس واقعی ساخته نشده، پیش‌نمایش با فیلتر نمایشی است. هر عکس واقعی حدود ۰٫۰۳۴ دلار هزینه دارد.");
+    $("#simulateStatus").text("تا وقتی عکس واقعی ساخته نشده، پیش‌نمایش با فیلتر نمایشی است. هر عکس واقعی با مدل پرو حدود ۰٫۱۳ تا ۰٫۲۵ دلار هزینه دارد.");
     setCompare(50);
+    markCompareBtn("#compareSplitBtn");
     applyZoom();
 
     // Quality + agreement note: photo problems and run-to-run disagreement
