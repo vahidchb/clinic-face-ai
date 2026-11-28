@@ -32,15 +32,17 @@ app = FastAPI(title="clinic-face-ai")
 # Real gateway config — all from environment, never hard-code a key here.
 # Hormouz (primary): AI_GATEWAY_BASE_URL=https://api.hormouz.net/v1
 #   AI_VISION_MODEL=google/gemini-3.1-flash-lite  (vision, $0.25 in / $1.50 out per 1M)
-#   AI_IMAGE_MODEL=google/gemini-3.1-flash-lite-image  (Nano Banana 2 Lite, $0.034/image)
+#   AI_IMAGE_MODEL=google/gemini-3-pro-image  (Nano Banana Pro, ~$0.13-0.25/image)
 # One analysis on Hormouz costs ~$0.0028 (two runs averaged, see _merge_analyses);
-# one after-photo ~$0.034.
+# one after-photo ~$0.13-0.25 (Pro). Pro replaced Lite as default 2026-11-28:
+# one Pro test (photo1, 6 treatments محسوس) showed clearly visible changes
+# (lips clearly fuller) with no color drift, where Lite did almost nothing.
 # Gisoo (backup for analysis only): AI_GATEWAY_BASE_URL=https://ir.gisoo.pro/api/v1
 #   with AI_VISION_MODEL=gemini-3.1-flash-lite (no google/ prefix there).
 GATEWAY_BASE_URL = os.environ.get("AI_GATEWAY_BASE_URL", "https://api.hormouz.net/v1")
 GATEWAY_API_KEY = os.environ.get("AI_GATEWAY_API_KEY", "")
 VISION_MODEL = os.environ.get("AI_VISION_MODEL", "google/gemini-3.1-flash-lite")
-IMAGE_MODEL = os.environ.get("AI_IMAGE_MODEL", "google/gemini-3.1-flash-lite-image")
+IMAGE_MODEL = os.environ.get("AI_IMAGE_MODEL", "google/gemini-3-pro-image")
 
 ANALYZE_SYSTEM_PROMPT = (
     "You are an experienced aesthetic dermatologist with 15 years of clinical "
@@ -110,24 +112,30 @@ HYDRATION_NOTE = (
 # the same three levels the UI offers (mild / moderate / noticeable); the
 # base wording carries no "subtle" so a محسوس edit reads as a clear change.
 TREATMENT_EDITS = {
-    "forehead-botox": "smooth the horizontal forehead lines",
-    "frown-botox": "smooth the vertical frown line between the eyebrows",
-    "eyes-botox": "smooth the fine lines at the outer corners of the eyes (crow's feet)",
-    "undereye-filler": "clearly fill the under-eye hollows and brighten the dark circles only under the eyes",
-    "nasolabial-filler": "clearly soften and fill the nasolabial folds (smile lines)",
-    "marionette-filler": "clearly soften and fill the marionette lines at the mouth corners",
-    "lip-filler": "add natural volume to the lips",
-    "cheek-filler": "add natural volume to the cheeks, lifting them clearly",
-    "jawline-filler": "clearly sharpen and define the jawline contour",
-    "chin-filler": "clearly improve the chin shape and projection, smoothing any dimpling",
-    "skin-treatment": "clearly improve skin texture only — smoother, more even texture, without changing skin color, brightness or tone",
+    # Result-state wording (experiment 2026-11-28): describe the face AFTER
+    # the treatment has fully taken effect, explicitly and visibly — the old
+    # gentle wording ("smooth the lines") made Lite do almost nothing.
+    "forehead-botox": "the forehead is completely smooth with NO visible horizontal lines, and the eyebrows are visibly lifted and arched higher than before",
+    "frown-botox": "the vertical frown lines between the eyebrows are completely gone",
+    "eyes-botox": "the eyebrows are visibly lifted and arched higher, and the fine lines at the outer corners of the eyes are completely gone",
+    "undereye-filler": "the under-eye hollows are clearly filled and the dark circles are gone, only under the eyes",
+    "nasolabial-filler": "the nasolabial folds (smile lines) are clearly filled and softened",
+    "marionette-filler": "the marionette lines at the mouth corners are clearly filled and softened",
+    "lip-filler": "the lips are clearly fuller and more defined, like a 0.5 to 1cc filler result, keeping their natural shape",
+    "cheek-filler": "the cheeks are visibly lifted and fuller, with a clear youthful contour",
+    "jawline-filler": "the jawline is sharply defined and contoured, clearly stronger than before",
+    "chin-filler": "the chin shape is clearly improved with better projection, any dimpling smoothed",
+    "skin-treatment": "skin texture is clearly improved only in the treated skin — smoother, more even texture, without changing skin color, brightness or tone",
 }
 INTENSITY_WORDS = {
-    "خفیف": "subtly",
-    "ملایم": "visibly",
-    "محسوس": "strongly",
+    # Calibrated 2026-11-28 (Vahid's 0.5cc rule): خفیف = just perceptible in
+    # that feature, like a small 0.5cc adjustment; ملایم = clearly visible;
+    # محسوس = obvious from a distance.
+    "خفیف": "slightly but perceptibly, like a small 0.5cc adjustment",
+    "ملایم": "clearly visibly",
+    "محسوس": "dramatically and obviously, clearly visible from a distance",
     # Old label kept as a silent alias so a stale page can still send it.
-    "متعادل": "visibly",
+    "متعادل": "clearly visibly",
 }
 DISCLAIMER = (
     "پیش‌نمایش تصویری است، نه تضمین نتیجه؛ تصمیم نهایی با پزشک است."
@@ -372,7 +380,11 @@ async def gateway_simulate(image_bytes: bytes, treatments: list, preview: str = 
     if not edits:
         raise ValueError("no treatment selected")
     prompt = (
-        "Edit this photo: " + "; ".join(edits) + ", natural result. "
+        "Edit this photo to show the face AFTER these aesthetic treatments "
+        "have fully taken effect: " + "; ".join(edits) + ". "
+        "The treated areas must look clearly different from the original — "
+        "a person looking at the photo must be able to tell the treatments "
+        "were done. "
         "Change ONLY the treated areas listed above — nothing else in the photo. "
         "NEVER change the hair color or hairstyle, eye color, skin tone or skin "
         "color, background, lighting, or clothing. Keep the person's face, eyes, "
