@@ -41,10 +41,11 @@
       <div class="ring" id="glowRing"><span id="glowScore">–</span><small>Glow Score</small></div>
       <div class="score-text">
         <h2>امتیاز درخشش پوست</h2>
-        <p>ترکیب آبرسانی، چروک، لک، منافذ و قرمزی — روی همین عکس.</p>
+        <p>ترکیب آبرسانی، چروک، لک، منافذ، قرمزی، زیر چشم و تقارن — روی همین عکس.</p>
         <span class="demo-badge" id="analysisBadge">داده‌ی نمایشی — تحلیل واقعی بعد از اتصال درگاه</span>
       </div>
     </div>
+    <p class="impression" id="overallImpression" hidden></p>
     <div class="metrics" id="metrics"></div>
     <p class="muted" id="qualityNote" hidden></p>
   </section>
@@ -60,6 +61,10 @@
     <h2>پیشنهادهای درمان</h2>
     <p class="muted">شدت فقط بصری است: خفیف / متعادل / محسوس. مقدار دقیق را پزشک تعیین می‌کند.</p>
     <div class="treatments" id="treatments"></div>
+    <div class="do-not-touch" id="doNotTouch" hidden>
+      <h3>ناحیه‌هایی که نباید دست خورد</h3>
+      <ul id="doNotTouchList"></ul>
+    </div>
   </section>
 
   <section class="card after-card" id="afterCard" hidden>

@@ -31,6 +31,10 @@ h2 { margin: 0 0 6px; font-size: 20px; }
   background: var(--pink-soft); min-height: 280px;
   display: flex; align-items: center; justify-content: center;
 }
+/* Once a photo is shown the box hugs the image exactly, so the numbered
+   zone markers (positioned in % of the box) land on the face, not in the
+   empty pink bands a min-height would leave around a wide photo. */
+.photo-box.has-photo { min-height: 0; }
 .photo-placeholder { text-align: center; color: #a05a6e; padding: 24px; }
 .photo-icon { font-size: 44px; }
 #photoPreview { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -76,6 +80,19 @@ h2 { margin: 0 0 6px; font-size: 20px; }
 }
 .real-badge { background: #dcfce7; color: #166534; }
 .metrics { margin-top: 16px; display: grid; gap: 10px; }
+.impression {
+  background: var(--lavender-soft); border-radius: 14px; padding: 12px 14px;
+  line-height: 1.9; margin: 14px 0 0;
+}
+.do-not-touch { margin-top: 16px; border-top: 1px dashed #e5d3da; padding-top: 14px; }
+.do-not-touch h3 { margin: 0 0 8px; font-size: 15px; color: var(--muted); }
+.do-not-touch ul { margin: 0; padding-right: 18px; color: var(--muted); line-height: 1.9; }
+.treatment-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.treatment-head h3 { margin: 0; }
+.priority-badge {
+  display: inline-block; background: var(--pink-soft); color: #a05a6e;
+  border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700;
+}
 .metric { display: grid; grid-template-columns: 110px 1fr 44px; gap: 10px; align-items: center; }
 .bar { height: 10px; border-radius: 999px; background: var(--pink-soft); overflow: hidden; }
 .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--lavender), var(--pink)); }
@@ -88,7 +105,6 @@ h2 { margin: 0 0 6px; font-size: 20px; }
 .zone-note { background: var(--lavender-soft); border-radius: 14px; padding: 12px; line-height: 1.8; }
 .treatments { display: grid; gap: 12px; }
 .treatment { border: 1px solid #f0dfe6; border-radius: 18px; padding: 14px; }
-.treatment h3 { margin: 0 0 10px; }
 .intensity { display: flex; gap: 6px; flex-wrap: wrap; }
 .intensity button {
   border: 1px solid #e5d3da; background: #fff; border-radius: 999px;
@@ -124,6 +140,7 @@ h2 { margin: 0 0 6px; font-size: 20px; }
 .page.split .hero { grid-column: 1 / -1; }
 .page.split .upload-card { grid-column: 1; grid-row: 2 / span 4; position: sticky; top: 16px; margin-bottom: 0; }
 .page.split .photo-box { min-height: 380px; }
+.page.split .photo-box.has-photo { min-height: 0; }
 .page.split .result-card { grid-column: 2; grid-row: 2; }
 .page.split .zones-card { grid-column: 2; grid-row: 3; }
 .page.split .treatments-card { grid-column: 2; grid-row: 4; }
@@ -136,6 +153,7 @@ h2 { margin: 0 0 6px; font-size: 20px; }
   .page.split .card { margin-bottom: 16px; }
   .page.split .upload-card { position: static; }
   .page.split .photo-box { min-height: 280px; }
+  .page.split .photo-box.has-photo { min-height: 0; }
 }
 @media (max-width: 520px) {
   h1 { font-size: 28px; }

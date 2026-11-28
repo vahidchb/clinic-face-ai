@@ -4,7 +4,7 @@
 
 $(function () {
   const INTENSITIES = ["خفیف", "متعادل", "محسوس"];
-  const ZONE_POS = { 1: [50, 18], 2: [50, 32], 3: [50, 44], 4: [50, 62], 5: [50, 78] };
+  const ZONE_POS = { 1: [50, 10], 2: [50, 26], 3: [72, 42], 4: [50, 50], 5: [62, 60], 6: [62, 66], 7: [50, 72], 8: [30, 56], 9: [50, 80], 10: [50, 86] };
   let analysis = null;
   let selectedZone = null;
   let previewLevel = "استاندارد"; // "ملایم" = each intensity one step gentler
@@ -24,6 +24,7 @@ $(function () {
 
   function showPhoto(src) {
     $("#photoPreview").attr("src", src).prop("hidden", false);
+    $("#photoBox").addClass("has-photo");
     $("#photoPlaceholder").hide();
     $("#analyzeBtn").prop("disabled", false);
     $("#uploadHint").text("عکس آماده است — «شروع تحلیل» را بزنید.");
@@ -284,6 +285,13 @@ $(function () {
     if (notes.length) $("#qualityNote").prop("hidden", false).text(notes.join(" "));
     else $("#qualityNote").prop("hidden", true);
 
+    // Overall clinical impression (the doctor's-eye first look).
+    if (data.overall_impression) {
+      $("#overallImpression").prop("hidden", false).text(data.overall_impression);
+    } else {
+      $("#overallImpression").prop("hidden", true);
+    }
+
     // Glow Score ring, animated count. Clamp 0-100 so a bad value can
     // never send the counter running forever.
     let n = 0;
@@ -316,18 +324,29 @@ $(function () {
     selectZone(data.zones[0].id);
 
     $("#treatments").empty();
-    data.treatments.forEach((t) => {
-      const buttons = INTENSITIES.map((label, i) =>
-        `<button type="button" data-intensity="${label}" class="${i === 1 ? "active" : ""}">${label}</button>`
+    const sorted = (data.treatments || []).slice().sort((a, b) => (a.priority || 9) - (b.priority || 9));
+    sorted.forEach((t) => {
+      const activeLabel = t.intensity && INTENSITIES.includes(t.intensity) ? t.intensity : "متعادل";
+      const buttons = INTENSITIES.map((label) =>
+        `<button type="button" data-intensity="${label}" class="${label === activeLabel ? "active" : ""}">${label}</button>`
       ).join("");
+      const badge = t.priority ? `<span class="priority-badge">اولویت ${t.priority}</span>` : "";
       $("#treatments").append(
-        `<div class="treatment" data-id="${t.id}">
-          <h3>${t.name}</h3>
+        `<div class="treatment" data-id="${t.id}" data-priority="${t.priority || ""}">
+          <div class="treatment-head"><h3>${t.name}</h3>${badge}</div>
           <div class="intensity">${buttons}</div>
           <label class="doctor-toggle"><input type="checkbox" class="doctor-check"> انتخاب پزشک</label>
         </div>`
       );
     });
+    // What NOT to touch — the doctor's restraint, shown under the plan.
+    if (data.do_not_touch && data.do_not_touch.length) {
+      $("#doNotTouchList").empty();
+      data.do_not_touch.forEach((item) => $("#doNotTouchList").append(`<li>${item}</li>`));
+      $("#doNotTouch").prop("hidden", false);
+    } else {
+      $("#doNotTouch").prop("hidden", true);
+    }
     updatePlan();
   }
 
@@ -360,7 +379,8 @@ $(function () {
       count += 1;
       const name = $(this).find("h3").text();
       const intensity = $(this).find(".intensity button.active").text();
-      $("#planList").append(`<li>${name} — شدت ${intensity}</li>`);
+      const priority = $(this).data("priority");
+      $("#planList").append(`<li>${name} — شدت ${intensity}${priority ? " — اولویت " + priority : ""}</li>`);
     });
     $("#planSummary").text(
       count === 0 ? "هنوز درمانی انتخاب نشده است." : `${count} درمان انتخاب شده است.`

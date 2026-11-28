@@ -43,27 +43,63 @@ VISION_MODEL = os.environ.get("AI_VISION_MODEL", "google/gemini-3.1-flash-lite")
 IMAGE_MODEL = os.environ.get("AI_IMAGE_MODEL", "google/gemini-3.1-flash-lite-image")
 
 ANALYZE_SYSTEM_PROMPT = (
-    "You are a skin-analysis assistant for an aesthetic clinic. "
-    "Analyze the face photo and return ONLY valid JSON with this shape: "
+    "You are an experienced aesthetic dermatologist with 15 years of clinical "
+    "practice in facial aesthetics. You are examining a patient's front-facing "
+    "photo exactly as you would at the start of a consultation: first an overall "
+    "clinical impression, then a systematic zone-by-zone examination of the WHOLE "
+    "face, then a prioritized treatment plan. "
+    "Examine every zone below. Do not skip any. For each zone report only what "
+    "you can actually see on this photo: exact location, depth/severity (mild / "
+    "moderate / severe), symmetry (symmetric, or which side is worse), and what "
+    "it means for treatment. Be specific and clinical — never vague. If a zone "
+    "shows no visible problem, say so plainly (score near 100) instead of "
+    "inventing one. "
+    "ZONES — always list all 10, in this order: "
+    "1 forehead — horizontal lines; "
+    "2 frown lines — vertical lines between the eyebrows; "
+    "3 around eyes — crow's feet and fine lines at the outer corners; "
+    "4 under eyes — darkness, puffiness, hollowing (tear trough); "
+    "5 nasolabial folds — smile lines from the nose to the mouth corners; "
+    "6 marionette lines — lines running down from the mouth corners; "
+    "7 lips — volume, shape, symmetry, definition; "
+    "8 cheeks — volume, lift, sagging; "
+    "9 jawline — definition, jowls, contour; "
+    "10 chin — shape, projection, dimpling. "
+    "OVERALL — also assess: facial symmetry, skin texture, pigmentation and "
+    "spots, pores, redness, and hydration (appearance estimate only — hydration "
+    "cannot be measured from a photo). "
+    "TREATMENT PLAN — prioritized, in the order a doctor would do them: what "
+    "first (biggest visible improvement), what next, what can wait. For each "
+    "treatment give: zone, treatment type (Botox / filler / skin treatment such "
+    "as mesotherapy, microneedling or laser — the TYPE only), and visual "
+    "intensity: mild / moderate / noticeable. Default intensity is noticeable "
+    "(محسوس) — the patient must see a clear difference. Also list what NOT to "
+    "touch: areas to leave alone to preserve natural symmetry and expression. "
+    "RULES — Visual intensity only. NEVER give a dosage in units, a volume in "
+    "cc or ml, or a medical diagnosis. The final amount and decision are always "
+    "the treating doctor's. Score only what you can actually see; do not guess "
+    "what the camera cannot show. Scales are anchored: 0 = problem severe and "
+    "clearly visible, 50 = moderate and visible at normal distance, 100 = not "
+    "visible at all. Use the exact Persian label 'آبرسانی (تخمین ظاهری)' for "
+    "hydration. Give one short Persian evidence sentence per metric and per "
+    "zone: what is visible, where, how severe, and which side if asymmetric. "
+    "Return ONLY valid JSON with this exact shape: "
     '{"glow_score": 0-100, '
-    '"metrics": [{"key": "hydration"|"wrinkles"|"spots"|"pores"|"redness", '
+    '"overall_impression": "<one Persian sentence: overall clinical impression>", '
+    '"metrics": [{"key": "hydration"|"wrinkles"|"spots"|"pores"|"redness"|"undereye"|"symmetry", '
     '"label": "<Persian label>", "value": 0-100, '
-    '"evidence": "<one short Persian sentence: what is visible on the photo>"}], '
-    '"zones": [{"id": 1-5, "name": "<Persian zone>", "value": 0-100, '
+    '"evidence": "<one short Persian sentence>"}], '
+    '"zones": [{"id": 1-10, "name": "<Persian zone>", "value": 0-100, '
     '"note": "<one short Persian sentence>"}], '
-    '"treatments": [{"id": "forehead-botox"|"frown-botox"|"eyes-botox"|"lip-filler"|"cheek-filler", '
-    '"name": "<Persian name>", "zone": "<Persian zone>"}], '
+    '"treatments": [{"id": "forehead-botox"|"frown-botox"|"eyes-botox"|"undereye-filler"|'
+    '"nasolabial-filler"|"marionette-filler"|"lip-filler"|"cheek-filler"|"jawline-filler"|'
+    '"chin-filler"|"skin-treatment", "name": "<Persian name>", "zone": "<Persian zone>", '
+    '"priority": 1-3, "intensity": "خفیف"|"متعادل"|"محسوس"}], '
+    '"do_not_touch": ["<Persian: area to leave alone and why>"], '
     '"photo_quality": {"ok": true/false, '
     '"note": "<one short Persian sentence: front-facing, lighting, makeup/filter>"}} '
-    "Scales are anchored — 0 means the problem is severe and clearly visible, "
-    "50 means moderate and visible at normal distance, 100 means not visible at all. "
-    "Score what you can actually see; do not guess what the camera cannot show. "
-    "Zones are: 1 forehead, 2 frown lines, 3 around eyes, 4 lips, 5 cheeks. "
-    "Always list all 5 zones and all 5 metrics. List all 5 treatments, even when "
-    "a treatment is not needed for this face — the doctor decides what to use. "
-    "Use the exact Persian label 'آبرسانی (تخمین ظاهری)' for hydration: hydration "
-    "cannot be measured from a photo, it is only an appearance estimate. "
-    "Give visual intensity only — never a dosage in units, never a medical diagnosis."
+    "Always list all 10 zones and all 7 metrics. List the treatments this face "
+    "needs, in priority order. Do not list treatments for zones with no visible problem."
 )
 
 HYDRATION_NOTE = (
@@ -71,13 +107,20 @@ HYDRATION_NOTE = (
 )
 
 # Per-treatment edit instructions for the after-photo. Intensity words are
-# the same three levels the UI offers (mild / moderate / noticeable).
+# the same three levels the UI offers (mild / moderate / noticeable); the
+# base wording carries no "subtle" so a محسوس edit reads as a clear change.
 TREATMENT_EDITS = {
     "forehead-botox": "smooth the horizontal forehead lines",
     "frown-botox": "smooth the vertical frown line between the eyebrows",
     "eyes-botox": "smooth the fine lines at the outer corners of the eyes (crow's feet)",
-    "lip-filler": "add a natural, subtle volume to the lips",
-    "cheek-filler": "add a natural, subtle volume to the cheeks, lifting them slightly",
+    "undereye-filler": "clearly fill the under-eye hollows and brighten the dark circles",
+    "nasolabial-filler": "clearly soften and fill the nasolabial folds (smile lines)",
+    "marionette-filler": "clearly soften and fill the marionette lines at the mouth corners",
+    "lip-filler": "add natural volume to the lips",
+    "cheek-filler": "add natural volume to the cheeks, lifting them clearly",
+    "jawline-filler": "clearly sharpen and define the jawline contour",
+    "chin-filler": "clearly improve the chin shape and projection, smoothing any dimpling",
+    "skin-treatment": "clearly improve overall skin texture and tone — smoother, brighter, more even skin",
 }
 INTENSITY_WORDS = {
     "خفیف": "subtly",
@@ -174,11 +217,27 @@ def _merge_analyses(first: dict, second: dict) -> dict:
             merged_item = dict(item)
             merged_item["value"] = _clamp(((item.get("value") or 0) + (other.get("value") or 0)) / 2)
             out.append(merged_item)
+        # A zone/metric the first run skipped but the second found still counts.
+        seen_keys = {i.get("key", i.get("id")) for i in out}
+        for item in second.get(key) or []:
+            if item.get("key", item.get("id")) not in seen_keys:
+                out.append(item)
+        if key == "zones":
+            out.sort(key=lambda z: z.get("id") or 0)
         merged[key] = out
     seen = {t.get("id") for t in first.get("treatments") or []}
     merged["treatments"] = list(first.get("treatments") or []) + [
         t for t in (second.get("treatments") or []) if t.get("id") not in seen
     ]
+    merged["treatments"].sort(key=lambda t: t.get("priority") or 9)
+    merged["overall_impression"] = (
+        first.get("overall_impression") or second.get("overall_impression") or ""
+    )
+    merged["do_not_touch"] = list(
+        dict.fromkeys(
+            (first.get("do_not_touch") or []) + (second.get("do_not_touch") or [])
+        )
+    )
     q1, q2 = first.get("photo_quality") or {}, second.get("photo_quality") or {}
     merged["photo_quality"] = {
         "ok": bool(q1.get("ok", True) and q2.get("ok", True)),
@@ -266,9 +325,12 @@ async def gateway_simulate(image_bytes: bytes, treatments: list, preview: str = 
         raise ValueError("no treatment selected")
     prompt = (
         "Edit this photo: " + "; ".join(edits) + ", natural result. "
-        "Keep the person's face, eyes, nose, lips, skin tone, hairstyle, pose, "
-        "lighting and background EXACTLY the same. Change ONLY the treated areas. "
-        "Do not beautify anything else. Photorealistic, no cartoon look."
+        "Also give the skin a subtle overall refresh — smoother, brighter, "
+        "more rested — without changing the person's identity, features or "
+        "expression. Keep the person's face, eyes, nose, lips, skin tone, "
+        "hairstyle, pose, lighting and background EXACTLY the same. Change "
+        "ONLY the treated areas plus that subtle skin refresh. Photorealistic, "
+        "no cartoon look."
     )
     client = _client()
     resp = client.chat.completions.create(
@@ -300,6 +362,7 @@ def demo_analysis():
     """Demo result — same shape the real gateway will return later."""
     return {
         "glow_score": 76,
+        "overall_impression": "چهره‌ی کلی سالم با خطوط متوسط پیشانی و خط اخم؛ اولویت با پیشانی و خط اخم است.",
         "metrics": [
             {"key": "hydration", "label": "آبرسانی (تخمین ظاهری)", "value": 72,
              "evidence": "پوست کمی خشک به نظر می‌رسد."},
@@ -311,20 +374,35 @@ def demo_analysis():
              "evidence": "منافذ روی بینی و گونه قابل مشاهده است."},
             {"key": "redness", "label": "قرمزی", "value": 82,
              "evidence": "قرمزی محسوسی دیده نمی‌شود."},
+            {"key": "undereye", "label": "تیرگی/پف زیر چشم", "value": 70,
+             "evidence": "تیرگی خفیف زیر چشم دیده می‌شود."},
+            {"key": "symmetry", "label": "تقارن", "value": 85,
+             "evidence": "تقارن صورت در مجموع خوب است."},
         ],
         "zones": [
             {"id": 1, "name": "پیشانی", "value": 70, "note": "خطوط افقی خفیف تا متوسط"},
             {"id": 2, "name": "خط اخم", "value": 62, "note": "خط عمودی بین ابروها"},
             {"id": 3, "name": "دور چشم", "value": 68, "note": "خطوط ریز گوشه‌ی چشم"},
-            {"id": 4, "name": "لب", "value": 80, "note": "حجم طبیعی، تقارن خوب"},
-            {"id": 5, "name": "گونه", "value": 74, "note": "حجم متوسط، افت خفیف"},
+            {"id": 4, "name": "زیر چشم", "value": 70, "note": "تیرگی خفیف، گودی محسوس نیست"},
+            {"id": 5, "name": "خط خنده", "value": 72, "note": "خط خنده‌ی خفیف تا متوسط"},
+            {"id": 6, "name": "خط غم", "value": 78, "note": "خط غم خفیف"},
+            {"id": 7, "name": "لب", "value": 80, "note": "حجم طبیعی، تقارن خوب"},
+            {"id": 8, "name": "گونه", "value": 74, "note": "حجم متوسط، افت خفیف"},
+            {"id": 9, "name": "خط فک", "value": 76, "note": "خط فک نسبتاً مشخص"},
+            {"id": 10, "name": "چانه", "value": 82, "note": "فرم چانه مناسب"},
         ],
         "treatments": [
-            {"id": "forehead-botox", "name": "بوتاکس پیشانی", "zone": "پیشانی"},
-            {"id": "frown-botox", "name": "بوتاکس خط اخم", "zone": "خط اخم"},
-            {"id": "eyes-botox", "name": "بوتاکس دور چشم", "zone": "دور چشم"},
-            {"id": "lip-filler", "name": "فیلر لب", "zone": "لب"},
-            {"id": "cheek-filler", "name": "فیلر گونه", "zone": "گونه"},
+            {"id": "forehead-botox", "name": "بوتاکس پیشانی", "zone": "پیشانی", "priority": 1, "intensity": "محسوس"},
+            {"id": "frown-botox", "name": "بوتاکس خط اخم", "zone": "خط اخم", "priority": 1, "intensity": "محسوس"},
+            {"id": "eyes-botox", "name": "بوتاکس دور چشم", "zone": "دور چشم", "priority": 2, "intensity": "متعادل"},
+            {"id": "undereye-filler", "name": "فیلر زیر چشم", "zone": "زیر چشم", "priority": 2, "intensity": "متعادل"},
+            {"id": "nasolabial-filler", "name": "فیلر خط خنده", "zone": "خط خنده", "priority": 2, "intensity": "متعادل"},
+            {"id": "lip-filler", "name": "فیلر لب", "zone": "لب", "priority": 3, "intensity": "خفیف"},
+            {"id": "cheek-filler", "name": "فیلر گونه", "zone": "گونه", "priority": 3, "intensity": "متعادل"},
+        ],
+        "do_not_touch": [
+            "لب را بیش‌ازحد پر نکنید — حجم طبیعی آن خوب است و تقارن را خراب می‌کند.",
+            "تقارن طبیعی ابروها را حفظ کنید.",
         ],
         "demo": True,
         "photo_quality": {"ok": True, "note": "عکس نمایشی — کیفیت واقعی بررسی نشده است."},
